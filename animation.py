@@ -66,6 +66,16 @@ class AnimationClip:
         return AnimationClip(self.root_positions[::step], self.rotations[::step], self.skeleton,
                              step * self.frame_time, positions).copy()
 
+    def subsample_keep_all(self, step=2):
+        anims = []
+        for s in range(step):
+            positions = {}
+            for jt in self.positions:
+                positions[jt] = self.positions[jt][s::step]
+            anims.append(AnimationClip(self.root_positions[s::step], self.rotations[s::step], self.skeleton,
+                                       step * self.frame_time, positions).copy())
+        return anims
+
     def mirror(self):
         self.skeleton.generate_mir_map()
         mir_map = self.skeleton.mir_map
@@ -189,7 +199,7 @@ class AnimationClip:
 
         # Transfer yaw rotation
         old_root_rots = self.rotations[:, 0].copy()
-        ups_tf, fwds_tf = old_root_rots.two_axis()
+        ups_tf, fwds_tf = rotation.quat_to_two_axis(old_root_rots)
         ups_tf = np.zeros_like(ups_tf)
         ups_tf[..., 1] = 1.0
         fwds_tf[..., 1] = 0.0
