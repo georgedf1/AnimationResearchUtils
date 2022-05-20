@@ -1,7 +1,7 @@
 import numpy as np
 
 
-INV_ARR = np.array([[1, -1, -1, -1]])
+INV_ARR = np.array([1, -1, -1, -1])
 AXIS = {
     'x': np.array([1, 0, 0]),
     'y': np.array([0, 1, 0]),
@@ -10,7 +10,8 @@ AXIS = {
 
 
 def quat_inv(qs):
-    return quat_mul_quat(qs, INV_ARR)
+    inv_shp = (len(qs.shape) - 1) * (1,) + (4,)
+    return qs * np.broadcast_to(INV_ARR, inv_shp)
 
 
 def quat_mul_quat(q0s, q1s):
