@@ -3,12 +3,11 @@ import numpy as np
 
 class Skeleton:
     """ Note that this skeleton stores constant joint offsets so is not valid for when local joint positions move"""
-    def __init__(self, jt_names, jt_hierarchy, jt_offsets, end_hierarchy, end_offsets):
+    def __init__(self, jt_names, jt_hierarchy, jt_offsets, end_offsets):
         self.jt_names = jt_names
         self.jt_hierarchy = np.array(jt_hierarchy)
         self.jt_offsets = np.array(jt_offsets)
-        self.end_hierarchy = np.array(end_hierarchy)
-        self.end_offsets = np.array(end_offsets)
+        self.end_offsets = end_offsets
         self.num_jts = len(self.jt_hierarchy)
         self.mir_map = self.generate_mir_map()
 
@@ -16,12 +15,13 @@ class Skeleton:
         return np.all(self.jt_names == other.jt_names) and \
                np.all(self.jt_hierarchy == other.jt_hierarchy) and \
                np.all(self.jt_offsets == other.jt_offsets) and \
-               np.all(self.end_hierarchy == other.end_hierarchy) and \
                np.all(self.end_offsets == other.end_offsets)
 
     def copy(self):
-        return Skeleton(self.jt_names.copy(), self.jt_hierarchy.copy(), self.jt_offsets.copy(),
-                        self.end_hierarchy.copy(), self.end_offsets.copy())
+        end_offsets = {}
+        for jt in self.end_offsets:
+            end_offsets[jt] = self.end_offsets[jt].copy()
+        return Skeleton(self.jt_names.copy(), self.jt_hierarchy.copy(), self.jt_offsets.copy(), end_offsets)
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
         mul_x = -1 if mir_x else 1
@@ -33,37 +33,30 @@ class Skeleton:
         self.jt_offsets[..., 1] = mul_y * jt_offsets_temp[..., new_y]
         self.jt_offsets[..., 2] = mul_z * jt_offsets_temp[..., new_z]
 
-        end_offsets_temp = self.end_offsets.copy()
-        self.end_offsets[..., 0] = mul_x * end_offsets_temp[..., new_x]
-        self.end_offsets[..., 1] = mul_y * end_offsets_temp[..., new_y]
-        self.end_offsets[..., 2] = mul_z * end_offsets_temp[..., new_z]
+        end_offsets_temp = {}
+        for jt in self.end_offsets:
+            end_offsets_temp[jt] = self.end_offsets[jt].copy()
+        for jt in self.end_offsets:
+            self.end_offsets[jt][0] = mul_x * end_offsets_temp[jt][new_x]
+            self.end_offsets[jt][1] = mul_y * end_offsets_temp[jt][new_y]
+            self.end_offsets[jt][2] = mul_z * end_offsets_temp[jt][new_z]
 
         """ If chirality flipped then remap data via mir_map """
         if mul_x * mul_y * mul_z == -1:
 
-            """ Flip joints """
+            """ Flip jt_offsets """
             jt_offsets_temp = self.jt_offsets.copy()
             for jt in range(self.num_jts):
                 mir_jt = self.mir_map[jt]
                 self.jt_offsets[jt] = jt_offsets_temp[mir_jt]
 
-            """ Flip end sites """
-            end_offsets_temp = self.end_offsets.copy()
-            for end_idx in range(len(self.end_hierarchy)):
-                par_jt = self.end_hierarchy[end_idx]
+            """ Flip end_offsets """
+            end_offsets_temp = {}  # Copy end_offsets
+            for jt in self.end_offsets:
+                end_offsets_temp[jt] = self.end_offsets[jt].copy()
+            for par_jt in self.end_offsets:  # Mirror end_offsets
                 par_mir_jt = self.mir_map[par_jt]
-
-                """ If parent has counterpart then flip end offset data """
-                if par_jt == par_mir_jt:  # No mirror needed
-                    continue
-
-                mir_found = False
-                for end_mir_idx in range(len(self.end_hierarchy)):
-                    if self.end_hierarchy[end_mir_idx] == par_mir_jt:
-                        self.end_offsets[end_idx] = end_offsets_temp[end_mir_idx]
-                        mir_found = True
-                        break
-                assert mir_found, 'Could not find end site to mirror for symmetrical joints'
+                self.end_offsets[par_jt] = end_offsets_temp[par_mir_jt]
 
     def generate_mir_map(self):
         """

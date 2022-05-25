@@ -13,7 +13,7 @@ class AnimationClip:
         positions: (dict) Optional, contains a dict mapping a jt idxs to arrays of local positions for moving offsets.
     """
 
-    def __init__(self, root_positions, rotations, skeleton, frame_time, positions=None):
+    def __init__(self, root_positions, rotations, skeleton: Skeleton, frame_time, positions={}):
         self.num_frames = root_positions.shape[0]
         assert self.num_frames == rotations.shape[0]
         assert root_positions.shape[1] == 3
@@ -23,15 +23,14 @@ class AnimationClip:
         self.rotations = rotations
         self.skeleton = skeleton
         self.frame_time = frame_time
-        if positions is None:
-            positions = {}
         for jt in positions:
             assert jt != 0, 'Use root_positions for the root joint (global) position instead'
             assert positions[jt].shape[0] == self.num_frames
             assert positions[jt].shape[1] == 3
         self.positions = positions
 
-    def __len__(self): return self.num_frames
+    def __len__(self):
+        return self.num_frames
 
     def __getitem__(self, k):
         positions = {}
@@ -98,28 +97,43 @@ class AnimationClip:
         rotations = np.append(self.rotations, anim.rotations, axis=0)
         positions = {}
         for jt in self.positions:
-            positions[jt] = np.append(self.positions, anim.positions, axis=0)
+            positions[jt] = np.append(self.positions[jt], anim.positions[jt], axis=0)
         return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions)
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
-        # Note mir_o mirrors the new o axis not the old o axis.
+        # Note: mir_o mirrors the new o axis not the old o axis.
 
-        self.rotations.reorder_axes_inplace(new_x, new_y, new_z, mir_x, mir_y, mir_z)
-        self.skeleton.reorder_axes_inplace(new_x, new_y, new_z, mir_x, mir_y, mir_z)
-
-        """ Do root_positions here """
         mul_x = -1 if mir_x else 1
         mul_y = -1 if mir_y else 1
         mul_z = -1 if mir_z else 1
+
+        # Reorder rotations
+        xs_temp = self.rotations[..., 1].copy()
+        ys_temp = self.rotations[..., 2].copy()
+        zs_temp = self.rotations[..., 3].copy()
+        temps = (xs_temp, ys_temp, zs_temp)
+        self.rotations[..., 1] = mul_x * temps[new_x]
+        self.rotations[..., 2] = mul_y * temps[new_y]
+        self.rotations[..., 3] = mul_z * temps[new_z]
+        self.rotations[..., 0] *= mul_x * mul_y * mul_z  # Adjust rotation according to chirality
+
+        # Reorder skeleton
+        self.skeleton.reorder_axes_inplace(new_x, new_y, new_z, mir_x, mir_y, mir_z)
+
+        # Reorder root_positions
         root_positions_temp = self.root_positions.copy()
         self.root_positions[..., 0] = mul_x * root_positions_temp[..., new_x]
         self.root_positions[..., 1] = mul_y * root_positions_temp[..., new_y]
         self.root_positions[..., 2] = mul_z * root_positions_temp[..., new_z]
+
+        # Reorder positions
+        pos_temp = {}
         for jt in self.positions:
-            pos_temp = self.positions[jt].copy()
-            self.positions[..., 0] = mul_x * pos_temp[..., new_x]
-            self.positions[..., 1] = mul_y * pos_temp[..., new_y]
-            self.positions[..., 2] = mul_z * pos_temp[..., new_z]
+            pos_temp[jt] = self.positions[jt].copy()
+        for jt in self.positions:
+            self.positions[jt][..., 0] = mul_x * pos_temp[jt][..., new_x]
+            self.positions[jt][..., 1] = mul_y * pos_temp[jt][..., new_y]
+            self.positions[jt][..., 2] = mul_z * pos_temp[jt][..., new_z]
 
     def align_with_skeleton(self, align_skeleton) -> bool:
         """ Helper function which attempts to align this clip to another skeleton with a shifted root offset"""
@@ -131,7 +145,6 @@ class AnimationClip:
         # Check that only the root rotation needs correction
         valid = np.all(self.skeleton.jt_names == align_skeleton.jt_names) and \
             np.all(self.skeleton.jt_hierarchy == align_skeleton.jt_hierarchy) and \
-            np.all(self.skeleton.end_hierarchy == align_skeleton.end_hierarchy) and \
             np.all(self.skeleton.end_offsets == align_skeleton.end_offsets)
         if not valid:
             return False
@@ -174,13 +187,11 @@ class AnimationClip:
         jt_offsets[0, 2] = 0.0
         jt_offsets = np.append([[0, 0, 0]], jt_offsets, axis=0)
 
-        end_hierarchy = self.skeleton.end_hierarchy.copy()
-        if end_hierarchy is not None:
-            end_hierarchy += 1
+        end_offsets = {}
+        for jt in self.skeleton.end_offsets:
+            end_offsets[jt + 1] = self.skeleton.end_offsets[jt].copy()
 
-        end_offsets = self.skeleton.end_offsets.copy()
-
-        new_skeleton = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_hierarchy, end_offsets)
+        new_skeleton = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_offsets)
 
         """ Add joint to copied animation clip data """
 
@@ -229,4 +240,4 @@ if __name__ == '__main__':
 
     new_anim = anim.extract_root_motion()
 
-    bvh.save_bvh('bvh_with_rm.bvh', new_anim)
+    #bvh.save_bvh('bvh_with_rm.bvh', new_anim)

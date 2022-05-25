@@ -5,22 +5,19 @@ from skeleton import Skeleton
 import rotation
 
 
-#REMAP_TO_UNITY = 'xyz' #'yzx'
-#MIR = False
-
-
 class RawBvhData:
     def __init__(self,
                  jt_names, jt_hierarchy, jt_channels, jt_offsets,
-                 end_hierarchy, end_offsets, frame_time, motion):
+                 end_offsets, frame_time, motion):
         self.jt_names = jt_names
-        self.jt_hierarchy = jt_hierarchy
+        self.jt_hierarchy = np.array(jt_hierarchy, dtype=int)
         self.jt_channels = jt_channels
-        self.jt_offsets = np.array(jt_offsets, dtype=float)
-        self.end_hierarchy = end_hierarchy
-        self.end_offsets = np.array(end_offsets, dtype=int)
+        self.jt_offsets = np.array(jt_offsets)
+        self.end_offsets = {}
+        for jt in end_offsets:
+            self.end_offsets[jt] = np.array(end_offsets[jt])
         self.frame_time = frame_time
-        self.motion = np.array(motion, dtype=float)
+        self.motion = np.array(motion)
 
 
 def __parse_bvh(bvh_path):
@@ -39,8 +36,7 @@ def __parse_bvh(bvh_path):
     jt_hierarchy = []
     jt_channels = []
     jt_offsets = []
-    endsite_hierarchy = []
-    endsite_offsets = []
+    endsite_offsets = {}
     motion_data = []
 
     """ 
@@ -113,8 +109,7 @@ def __parse_bvh(bvh_path):
             #cur_endsite_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
             cur_endsite_offset = line.split(' ')
             assert len(cur_endsite_offset) == 3
-            endsite_offsets.append([float(x) for x in cur_endsite_offset])
-            endsite_hierarchy.append(prev_jt_idx)
+            endsite_offsets[prev_jt_idx] = [float(x) for x in cur_endsite_offset]
             line_idx += 2
             continue
 
@@ -162,12 +157,12 @@ def __parse_bvh(bvh_path):
     Pack into convenient container
     """
     raw_bvh_data = RawBvhData(jt_names, jt_hierarchy, jt_channels, jt_offsets,
-                              endsite_hierarchy, endsite_offsets, frame_time, motion_data)
+                              endsite_offsets, frame_time, motion_data)
 
     return raw_bvh_data
 
 
-def load_bvh(bvh_path, downscale=1000.0, degrees=True):
+def load_bvh(bvh_path, downscale=1.0, degrees=True):
     """ For now we are ignoring joint positions (except root) """
 
     raw_bvh_data = __parse_bvh(bvh_path)
@@ -223,9 +218,11 @@ def load_bvh(bvh_path, downscale=1000.0, degrees=True):
 
     assert downscale > 0
 
+    for jt in end_offsets:
+        end_offsets[jt] = end_offsets[jt] / downscale
+
     skeleton = Skeleton(raw_bvh_data.jt_names,
-                        raw_bvh_data.jt_hierarchy, jt_offsets / downscale,
-                        raw_bvh_data.end_hierarchy, end_offsets / downscale)
+                        raw_bvh_data.jt_hierarchy, jt_offsets / downscale, end_offsets)
     frame_time = raw_bvh_data.frame_time
 
     for jt in positions:
@@ -249,7 +246,6 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
     jt_hierarchy = anim.skeleton.jt_hierarchy
     jt_offsets = anim.skeleton.jt_offsets
 
-    end_hierarchy = anim.skeleton.end_hierarchy
     end_offsets = anim.skeleton.end_offsets
 
     root_positions = anim.root_positions
@@ -303,16 +299,14 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
         ]
 
         # Add end site
-        for es, es_par_jt in enumerate(end_hierarchy):
-            if es_par_jt == jt:
-                end_offset = "{:.5f} {:.5f} {:.5f}".format(end_offsets[es][0], end_offsets[es][1], end_offsets[es][2])
-                lines += [
-                    num_indents * '\t' + "End Site",
-                    num_indents * '\t' + "{",
-                    (num_indents + 1) * '\t' + "OFFSET " + end_offset,
-                    num_indents * '\t' + "}"
-                ]
-                break
+        if jt in end_offsets:
+            end_offset = "{:.5f} {:.5f} {:.5f}".format(end_offsets[jt][0], end_offsets[jt][1], end_offsets[jt][2])
+            lines += [
+                num_indents * '\t' + "End Site",
+                num_indents * '\t' + "{",
+                (num_indents + 1) * '\t' + "OFFSET " + end_offset,
+                num_indents * '\t' + "}"
+            ]
 
         jt_stack.append(jt)
 
