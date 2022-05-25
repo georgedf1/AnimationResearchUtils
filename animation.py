@@ -143,9 +143,13 @@ class AnimationClip:
             return True
 
         # Check that only the root rotation needs correction
-        valid = np.all(self.skeleton.jt_names == align_skeleton.jt_names) and \
-            np.all(self.skeleton.jt_hierarchy == align_skeleton.jt_hierarchy) and \
-            np.all(self.skeleton.end_offsets == align_skeleton.end_offsets)
+        if self.skeleton.end_offsets.keys() != align_skeleton.end_offsets.keys():
+            return False
+        valid = True
+        for jt in self.skeleton.end_offsets:
+            valid |= np.all(self.skeleton.end_offsets[jt] == align_skeleton.end_offsets[jt])
+        valid |= np.all(self.skeleton.jt_names == align_skeleton.jt_names)
+        valid |= np.all(self.skeleton.jt_hierarchy == align_skeleton.jt_hierarchy)
         if not valid:
             return False
 

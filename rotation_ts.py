@@ -5,8 +5,9 @@ INV_ARR = torch.Tensor([1, -1, -1, -1])
 
 
 def quat_inv(qs):
-    inv_shp = (len(qs.shape) - 1) * (1,) + (4,)
-    return qs * torch.broadcast_to(INV_ARR, inv_shp)
+    dtype = qs.dtype
+    device = qs.device
+    return qs * torch.broadcast_to(INV_ARR.type(dtype).to(device), qs.shape)
 
 
 def quat_mul_quat(q0s, q1s):
