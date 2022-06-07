@@ -77,24 +77,24 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50):
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
 
-    x_min = np.min(positions[:, 0])
-    x_max = np.max(positions[:, 0])
-    y_min = np.min(positions[:, 1])
-    y_max = np.max(positions[:, 1])
-    z_min = np.min(positions[:, 2])
-    z_max = np.max(positions[:, 2])
+    x_min = np.min(positions[..., 0])
+    x_max = np.max(positions[..., 0])
+    y_min = np.min(positions[..., 1])
+    y_max = np.max(positions[..., 1])
+    z_min = np.min(positions[..., 2])
+    z_max = np.max(positions[..., 2])
 
     # TODO Make more sophisticated (keep centre zero)
-    max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
-    if x_max - x_min < max_val:
-        x_max = x_max * max_val / (x_max - x_min)
-        x_min = x_min * max_val / (x_max - x_min)
-    if y_max - y_min < max_val:
-        y_max = y_max * max_val / (y_max - y_min)
-        y_min = y_min * max_val / (y_max - y_min)
-    if x_max - x_min < max_val:
-        z_max = z_max * max_val / (z_max - z_min)
-        z_min = z_min * max_val / (z_max - z_min)
+    max_diff = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
+    if x_max - x_min < max_diff:
+        x_max = x_max * max_diff / x_max - x_min
+        x_min = x_min * max_diff / x_max - x_min
+    if y_max - y_min < max_diff:
+        y_max = y_max * max_diff / y_max - y_min
+        y_min = y_min * max_diff / y_max - y_min
+    if x_max - x_min < max_diff:
+        z_max = z_max * max_diff / z_max - z_min
+        z_min = z_min * max_diff / z_max - z_min
 
     ax.set(xlim3d=(x_min, x_max), xlabel='X')
     ax.set(ylim3d=(y_min, y_max), ylabel='Y')
