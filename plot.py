@@ -19,12 +19,12 @@ def plot_animation(anim : animation.AnimationClip, ft_ms=50, end_sites=False):
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
 
-    x_min = np.min(global_posis[:, 0])
-    x_max = np.max(global_posis[:, 0])
-    y_min = np.min(global_posis[:, 1])
-    y_max = np.max(global_posis[:, 1])
-    z_min = np.min(global_posis[:, 2])
-    z_max = np.max(global_posis[:, 2])
+    x_min = np.min(global_posis[..., 0])
+    x_max = np.max(global_posis[..., 0])
+    y_min = np.min(global_posis[..., 1])
+    y_max = np.max(global_posis[..., 1])
+    z_min = np.min(global_posis[..., 2])
+    z_max = np.max(global_posis[..., 2])
 
     # TODO Make more sophisticated (keep centre zero)
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
