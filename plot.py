@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 import matplotlib.animation
 import numpy as np
 import animation
 import kinematics
 
 
-def plot_animation(anim : animation.AnimationClip, ft_ms=50, end_sites=False):
+def plot_animation(anim : animation.AnimationClip, ft_ms=50, end_sites=False, ignore_root=False):
 
     num_frames, num_jts = anim.rotations.shape[0:2]
 
@@ -43,18 +44,42 @@ def plot_animation(anim : animation.AnimationClip, ft_ms=50, end_sites=False):
     ax.set(zlim3d=(z_min, z_max), zlabel='Z')
 
     jt_plots = [ax.scatter([], [], [], c='b') for _ in range(num_jts)]
-    end_plots = [ax.scatter([], [], [], c='r') for _ in range(len(anim.skeleton.end_offsets))]
+    bone_collection = LineCollection([])
+    ax.add_collection3d(bone_collection)
+    bone_collection.set_segments([])
+
+    num_jts_with_root_par = (skel.jt_hierarchy == 0).sum()
+    if ignore_root:
+        bone_segments = np.empty((num_jts - 1 - num_jts_with_root_par, 2, 3))
+    else:
+        bone_segments = np.empty((num_jts - 1, 2, 3))
+    if end_sites:
+        end_plots = [ax.scatter([], [], [], c='b') for _ in range(len(anim.skeleton.end_offsets))]
 
     def update_fn(fr):
+        # Joints
         for jt in range(num_jts):
+            if jt == 0 and ignore_root:
+                continue
             jt_plots[jt].set_offsets(global_posis[fr, jt, 0:2])
             jt_plots[jt].set_3d_properties(global_posis[fr, jt, 2], [0, 0, 1])
 
-        for i, jt in enumerate(anim.skeleton.end_offsets):
-            end_plots[i].set_offsets(global_end_posis[jt][fr, 0:2])
-            end_plots[i].set_3d_properties(global_end_posis[jt][fr, 2], [0, 0, 1])
+        # Bones
+        bone_idx = 0
+        for jt in range(1, num_jts):
+            par_jt = skel.jt_hierarchy[jt]
+            if par_jt == 0 and ignore_root:
+                continue
+            bone_segments[bone_idx, 0] = global_posis[fr, par_jt]
+            bone_segments[bone_idx, 1] = global_posis[fr, jt]
+            bone_idx += 1
+        bone_collection.set_segments(bone_segments)
 
-        return jt_plots.append(end_plots)
+        # End effectors TODO Consider adding end effector bones
+        if end_sites:
+            for i, jt in enumerate(anim.skeleton.end_offsets):
+                end_plots[i].set_offsets(global_end_posis[jt][fr, 0:2])
+                end_plots[i].set_3d_properties(global_end_posis[jt][fr, 2], [0, 0, 1])
 
     anim_handle = matplotlib.animation.FuncAnimation(
         fig, update_fn, num_frames, interval=ft_ms
