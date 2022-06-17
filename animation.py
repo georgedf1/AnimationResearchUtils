@@ -169,10 +169,11 @@ class AnimationClip:
         and convert it to a more useful format, typically used in games, for character animation where the root is
         a floor projected non-physical joint containing only horizontal translation and yaw motion.
 
-        As such this method extracts this 'root motion', putting it on a new root joint,
-        moves the old root down the hierarchy, leaving any remaining motion on that joint.
-
-        The up vector is assumed to be the y-axis and forward is the z-axis.
+        You should be aware:
+         - As such this method extracts this 'root motion', putting it on a new root joint,
+           moves the old root down the hierarchy, leaving any remaining motion on that joint via the new positions dict.
+         - The corresponding old root's joint offset is zero as a static offset doesn't make sense for a moving joint.
+         - The up vector is assumed to be the y-axis and forward is the z-axis.
         """
 
         """ Create new skeleton with new root joint """
@@ -237,11 +238,17 @@ class AnimationClip:
 if __name__ == '__main__':
 
     filepath = "C:/Research/Data/CAMERA_bvh_loco/Bella/Bella001_walk.bvh"
+    filepath = "D:/Research/Data/CMU/unzipped/69/69_10.bvh"
+    filepath = "D:\Research\Data\LAFAN1\walk4_subject1.bvh"
 
     import bvh
 
     anim = bvh.load_bvh(filepath, downscale=1)
 
+    new_anim = anim
     new_anim = anim.extract_root_motion()
+    new_anim.reorder_axes_inplace(2, 0, 1)
+    import plot
+    plot.plot_animation(new_anim)
 
     #bvh.save_bvh('bvh_with_rm.bvh', new_anim)
