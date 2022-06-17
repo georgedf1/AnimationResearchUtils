@@ -2,7 +2,7 @@ import numpy as np
 import rotation
 
 
-def forward_kinematics(root_positions, rotations, skeleton, positions={}):
+def forward_kinematics(root_positions, rotations, skeleton, positions=None, local_to_root=False):
     """
     :param root_positions: (np.ndarray) root positions shape (..., 3)
     :param rotations: (np.ndarray) local joint rotations shape (..., J, 4)
@@ -12,7 +12,8 @@ def forward_kinematics(root_positions, rotations, skeleton, positions={}):
         (np.ndarray) global_rotations of shape (..., J, 4)
         (dict) global_end_sites - maps a jt to its child end site global position if it has one
     """
-
+    if positions is None:
+        positions = {}
     shape = rotations.shape
     num_jts = shape[-2]
 
@@ -24,20 +25,26 @@ def forward_kinematics(root_positions, rotations, skeleton, positions={}):
     offsets = np.broadcast_to(skeleton.jt_offsets, shape[:-2] + (num_jts, 3))
     end_offsets = skeleton.end_offsets
 
-    global_positions[:, 0] = root_positions
-    global_rotations[:, 0] = rotations[:, 0]
+    if local_to_root:
+        global_positions[..., 0] = 0.0
+        global_rotations[..., 0] = 0.0
+        global_rotations[..., 0, 0] = 1.0
+    else:
+        global_positions[:, 0] = root_positions
+        global_rotations[:, 0] = rotations[:, 0]
 
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
-        posis = positions[jt] if jt in positions else offsets[:, jt]
+        posis = positions[jt] if jt in positions else offsets[..., jt, :]
 
-        global_rotations[:, jt] = rotation.quat_mul_quat(global_rotations[:, par_jt], rotations[:, jt])
-        global_positions[:, jt] = global_positions[:, par_jt] + rotation.quat_mul_vec(global_rotations[:, par_jt], posis)
+        global_rotations[..., jt, :] = rotation.quat_mul_quat(global_rotations[..., par_jt, :], rotations[..., jt, :])
+        global_positions[..., jt, :] = global_positions[..., par_jt, :] + rotation.quat_mul_vec(
+            global_rotations[..., par_jt, :], posis)
 
         if jt in end_offsets:
-            global_rot = global_rotations[:, jt]
+            global_rot = global_rotations[..., jt, :]
             end_posis = np.broadcast_to(end_offsets[jt], global_rot.shape[:-1] + (3,))
-            global_end_positions[jt] = global_positions[:, jt] + rotation.quat_mul_vec(global_rot, end_posis)
+            global_end_positions[jt] = global_positions[..., jt, :] + rotation.quat_mul_vec(global_rot, end_posis)
 
     return global_positions, global_rotations, global_end_positions
 

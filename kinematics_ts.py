@@ -2,16 +2,19 @@ import torch
 import rotation_ts
 
 
-def forward_kinematics(root_positions, rotations, skeleton, positions={}):
+def forward_kinematics(root_positions, rotations, skeleton, positions=None, local_to_root=False):
     """
     :param root_positions: (torch.Tensor) root positions shape (..., 3)
     :param rotations: (torch.Tensor) local joint rotations shape (..., J, 4)
     :param skeleton: (Skeleton)
     :param positions: (dict) dictionary mapping jt to local position offset (overriding the offset for that jt)
+    :param local_to_root: (bool) If true the global root info is ignored, otherwise it is not.
     :return: (torch.Tensor) global_positions (local to the root position) of shape (..., J, 3),
         (torch.Tensor) global_rotations of shape (..., J, 4)
         (dict) global_end_sites - maps a jt to its child end site global position if it has one
     """
+    if positions is None:
+        positions = {}
 
     shape = rotations.shape
     num_jts = shape[-2]
@@ -19,8 +22,14 @@ def forward_kinematics(root_positions, rotations, skeleton, positions={}):
     device = rotations.device
 
     # We have to use lists of tensors for jts here or else pytorch anomaly detection will get annoyed at us :)
-    global_positions = [root_positions[..., None, :]]
-    global_rotations = [rotations[..., 0:1, :]]
+    if local_to_root:
+        global_positions = [torch.zeros_like(root_positions[..., None, :])]
+        global_rotations = [torch.zeros_like(rotations[..., 0:1, :])]
+        global_rotations[0][..., 0:1, 0] = 1.0
+    else:
+        global_positions = [root_positions[..., None, :]]
+        global_rotations = [rotations[..., 0:1, :]]
+
     global_end_positions = {}
 
     hierarchy = skeleton.jt_hierarchy
@@ -42,10 +51,11 @@ def forward_kinematics(root_positions, rotations, skeleton, positions={}):
             global_rotations[par_jt], posis))
 
         if jt in end_offsets:
-            global_rot = global_rotations[jt]
+            global_rot = global_rotations[jt][..., 0, :]
+            global_pos = global_positions[jt][..., 0, :]
             end_offset = torch.from_numpy(end_offsets[jt]).type(dtype).to(device)
             end_posis = torch.broadcast_to(end_offset, global_rot.shape[:-1] + (3,))
-            global_end_positions[jt] = global_positions[jt] + rotation_ts.quat_mul_vec(global_rot, end_posis)
+            global_end_positions[jt] = global_pos + rotation_ts.quat_mul_vec(global_rot, end_posis)
 
     return torch.cat(global_positions, dim=-2), torch.cat(global_rotations, dim=-2), global_end_positions
 
