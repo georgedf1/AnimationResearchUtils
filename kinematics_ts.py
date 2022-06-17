@@ -48,3 +48,24 @@ def forward_kinematics(root_positions, rotations, skeleton, positions={}):
             global_end_positions[jt] = global_positions[jt] + rotation_ts.quat_mul_vec(global_rot, end_posis)
 
     return torch.cat(global_positions, dim=-2), torch.cat(global_rotations, dim=-2), global_end_positions
+
+
+def local_to_global(fk_pos, fk_end_pos, root_pos, root_rot):
+    """
+    fk_pos: tensor of shape (..., J, 3) - Considered local to root positions
+    fk_end_pos: dict mapping joint index to tensor of shape (..., 3)
+    root_pos: tensor of shape (..., 3)
+    root_rot: tensor of shape (..., 4)
+
+    outputs global position and global end positions rotated by root_rot (root is pivot) and then shifted by root_pos
+    """
+
+    assert torch.all(fk_pos[..., 0, :] == 0.0)
+
+    global_pos = root_pos[..., None, :] + rotation_ts.quat_mul_vec(root_rot[..., None, :], fk_pos)
+
+    global_end_pos = {}
+    for jt in fk_end_pos:
+        global_end_pos[jt] = root_pos + rotation_ts.quat_mul_vec(root_rot, fk_end_pos[jt])
+
+    return global_pos, global_end_pos
