@@ -325,7 +325,10 @@ def two_axis_to_quat(ups_tf, fwds_tf, up_idx=1, fwd_idx=2):
     assert x_idx is not None
 
     ups_tf = ups_tf / np.linalg.norm(ups_tf, axis=-1)[..., None]
+
     fwds_tf = fwds_tf - np.sum(ups_tf * fwds_tf, axis=-1)[..., None] * ups_tf
+    fwds_tf = fwds_tf / np.linalg.norm(fwds_tf, axis=-1)[..., None]
+
     cross = np.cross(ups_tf, fwds_tf, axis=-1)
 
     m = np.empty(ups_tf.shape[:-1] + (3, 3))

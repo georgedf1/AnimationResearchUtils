@@ -40,8 +40,19 @@ def quat_mul_vec(qs, vs):
     return vs_q[..., 1:]
 
 
-def two_axis_to_quat(ups_tf, fwds_tf, up_idx=1, fwd_idx=2):
+def vec_cross_vec(a, b):
+    return torch.cat([
+        a[..., 1:2]*b[..., 2:3] - a[..., 2:3]*b[..., 1:2],
+        a[..., 2:3]*b[..., 0:1] - a[..., 0:1]*b[..., 2:3],
+        a[..., 0:1]*b[..., 1:2] - a[..., 1:2]*b[..., 0:1]], dim=-1)
 
+
+def two_axis_to_quat(ups_tf, fwds_tf, up_idx=1, fwd_idx=2):
+    # Expects ups_tf and fwds_tf both of shape (BATCH, WIN_LEN, NUM_JTS, 3)
+    # Outputs quaternion of shape (BATCH, WIN_LEN, NUM_JTS, 4)
+    # Some theory behind the usage of the 6D representation can be found in a paper
+    #   "On the Continuity of Rotation Representations in Neural Networks"
+    # as such I use the formulae they presented.
     dtype = ups_tf.dtype
     device = ups_tf.device
 
@@ -52,8 +63,11 @@ def two_axis_to_quat(ups_tf, fwds_tf, up_idx=1, fwd_idx=2):
     assert x_idx is not None
 
     ups_tf = ups_tf / torch.linalg.norm(ups_tf, dim=-1)[..., None]
+
     fwds_tf = fwds_tf - torch.sum(ups_tf * fwds_tf, dim=-1)[..., None] * ups_tf
-    cross = torch.cross(ups_tf, fwds_tf, dim=-1)  # FIXME Check if correct
+    fwds_tf = fwds_tf / torch.linalg.norm(fwds_tf, dim=-1)[..., None]
+
+    cross = vec_cross_vec(ups_tf, fwds_tf)
 
     m = torch.empty(ups_tf.shape[:-1] + (3, 3)).type(dtype).to(device)
     m[..., up_idx] = ups_tf
