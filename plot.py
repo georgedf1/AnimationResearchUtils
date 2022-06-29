@@ -10,10 +10,12 @@ def plot_animation(anim : animation.AnimationClip, ft_ms=50, end_sites=False, ig
 
     num_frames, num_jts = anim.rotations.shape[0:2]
 
-    root_posis = anim.root_positions
-    rots = anim.rotations
-    skel = anim.skeleton
-    posis = anim.positions
+    root_posis = anim.root_positions.copy()
+    rots = anim.rotations.copy()
+    skel = anim.skeleton.copy()
+    posis = {}
+    for jt in anim.positions:
+        posis[jt] = anim.positions[jt].copy()
 
     global_posis, global_rots, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
 

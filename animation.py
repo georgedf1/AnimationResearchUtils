@@ -6,7 +6,7 @@ import rotation
 class AnimationClip:
     """
     Animation is specified by joint local rotations, root positions, and a skeleton:
-        root_positions = (np.ndarray) of shape (N, 3)
+        root_positions: (np.ndarray) of shape (N, 3)
         rotations :  (np.ndarray) of shape (N, J, 4) in quaternion format
         skeleton: (Skeleton) contains info needed for FK and rendering
         frame_time: (float) time between each frame
@@ -15,7 +15,9 @@ class AnimationClip:
 
     def __init__(self, root_positions, rotations, skeleton: Skeleton, frame_time, positions={}):
         self.num_frames = root_positions.shape[0]
-        assert self.num_frames == rotations.shape[0]
+        assert self.num_frames == rotations.shape[0],\
+            'num_frames and rotations.shape[0] should match but are {} and {}'.format(
+                self.num_frames, rotations.shape[0])
         assert root_positions.shape[1] == 3
         self.num_jts = len(skeleton.jt_hierarchy)
         assert self.num_jts == rotations.shape[1]
@@ -38,12 +40,12 @@ class AnimationClip:
             for jt in self.positions:
                 positions[jt] = self.positions[jt][k:k + 1]
             return AnimationClip(self.root_positions[k:k + 1], self.rotations[k:k + 1],
-                                 self.skeleton, self.frame_time, positions)
+                                 self.skeleton, self.frame_time, positions).copy()
         elif isinstance(k, slice):
             for jt in self.positions:
                 positions[jt] = self.positions[jt][k]
             return AnimationClip(self.root_positions[k], self.rotations[k],
-                                 self.skeleton, self.frame_time, positions)
+                                 self.skeleton, self.frame_time, positions).copy()
         else:
             raise TypeError("Accessing Animation class with invalid index type")
 
@@ -98,7 +100,7 @@ class AnimationClip:
         positions = {}
         for jt in self.positions:
             positions[jt] = np.append(self.positions[jt], anim.positions[jt], axis=0)
-        return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions)
+        return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions).copy()
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
         # Note: mir_o mirrors the new o axis not the old o axis.
@@ -226,7 +228,7 @@ class AnimationClip:
         new_rotations = np.concatenate(
             [new_root_rots[:, None],
              old_root_rots[:, None],
-             self.rotations[:, 1:]],
+             self.rotations[:, 1:].copy()],
             axis=1)
 
         # Save old root positions to positions
