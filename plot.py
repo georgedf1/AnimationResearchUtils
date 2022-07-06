@@ -6,7 +6,8 @@ import kinematics
 
 def plot_animation(anim: animation.AnimationClip,
                    other_anim: animation.AnimationClip=None,
-                   ft_ms=None, end_sites=False, ignore_root=False):
+                   ft_ms=None, end_sites=False, ignore_root=False,
+                   marker_size=5, line_size=4):
 
     if ft_ms is None:
         ft_ms = 1000 * anim.frame_time
@@ -18,10 +19,6 @@ def plot_animation(anim: animation.AnimationClip,
     posis = {}
     for jt in anim.positions:
         posis[jt] = anim.positions[jt].copy()
-
-    avg_bone_len = np.mean(np.linalg.norm(skel.jt_offsets, axis=-1))
-    marker_size = 2.0 * avg_bone_len
-    line_size = avg_bone_len
 
     global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
 
@@ -58,6 +55,24 @@ def plot_animation(anim: animation.AnimationClip,
     if x_max - x_min < max_val:
         z_max = z_max * max_val / (z_max - z_min)
         z_min = z_min * max_val / (z_max - z_min)
+
+    # Expand boundaries a bit to prevent clipping with edges
+    dilation = 1.1
+    # X
+    x_mid = (x_max + x_min) / 2
+    x_diff = (x_max - x_min) / 2
+    x_min = x_mid - dilation * x_diff
+    x_max = x_mid + dilation * x_diff
+    # Y
+    y_mid = (y_max + y_min) / 2
+    y_diff = (y_max - y_min) / 2
+    y_min = y_mid - dilation * y_diff
+    y_max = y_mid + dilation * y_diff
+    # Z
+    z_mid = (z_max + z_min) / 2
+    z_diff = (z_max - z_min) / 2
+    z_min = z_mid - dilation * z_diff
+    z_max = z_mid + dilation * z_diff
 
     def frame_args(duration):
         return dict(
@@ -207,6 +222,24 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
     if x_max - x_min < max_val:
         z_max = z_max * max_val / (z_max - z_min)
         z_min = z_min * max_val / (z_max - z_min)
+
+    # Expand boundaries a bit to prevent clipping with edges
+    dilation = 1.1
+    # X
+    x_mid = (x_max + x_min) / 2
+    x_diff = (x_max - x_min) / 2
+    x_min = x_mid - dilation * x_diff
+    x_max = x_mid + dilation * x_diff
+    # Y
+    y_mid = (y_max + y_min) / 2
+    y_diff = (y_max - y_min) / 2
+    y_min = y_mid - dilation * y_diff
+    y_max = y_mid + dilation * y_diff
+    # Z
+    z_mid = (z_max + z_min) / 2
+    z_diff = (z_max - z_min) / 2
+    z_min = z_mid - dilation * z_diff
+    z_max = z_mid + dilation * z_diff
 
     def frame_args(duration):
         return dict(
