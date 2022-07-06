@@ -9,7 +9,6 @@ class Skeleton:
         self.jt_offsets = np.array(jt_offsets)
         self.end_offsets = end_offsets
         self.num_jts = len(self.jt_hierarchy)
-        self.mir_map = self.generate_mir_map()
 
     def __eq__(self, other):
         return np.all(self.jt_names == other.jt_names) and \
@@ -24,6 +23,8 @@ class Skeleton:
         return Skeleton(self.jt_names.copy(), self.jt_hierarchy.copy(), self.jt_offsets.copy(), end_offsets)
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
+        mir_map = self.generate_mir_map()
+
         mul_x = -1 if mir_x else 1
         mul_y = -1 if mir_y else 1
         mul_z = -1 if mir_z else 1
@@ -47,7 +48,7 @@ class Skeleton:
             """ Flip jt_offsets """
             jt_offsets_temp = self.jt_offsets.copy()
             for jt in range(self.num_jts):
-                mir_jt = self.mir_map[jt]
+                mir_jt = mir_map[jt]
                 self.jt_offsets[jt] = jt_offsets_temp[mir_jt]
 
             """ Flip end_offsets """
@@ -55,7 +56,7 @@ class Skeleton:
             for jt in self.end_offsets:
                 end_offsets_temp[jt] = self.end_offsets[jt].copy()
             for par_jt in self.end_offsets:  # Mirror end_offsets
-                par_mir_jt = self.mir_map[par_jt]
+                par_mir_jt = mir_map[par_jt]
                 self.end_offsets[par_jt] = end_offsets_temp[par_mir_jt]
 
     def generate_mir_map(self):
