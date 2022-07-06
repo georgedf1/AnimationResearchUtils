@@ -61,9 +61,12 @@ class Skeleton:
 
     def generate_mir_map(self):
         """
+        Make sure you know what you're doing using this.
+        Expects mirror symmetry in skeletal hierarchy.
+
         Uses jt_names and jt_hierarchy to compute a mirroring map
         For two joints to be considered opposites the names must have
-        'Left' and 'Right' in them and be identical when these are removed
+        'Left' and 'Right' in them and be identical when these are removed.
         """
         names = self.jt_names
         hierarchy = self.jt_hierarchy
@@ -71,12 +74,20 @@ class Skeleton:
         assert len(names) == len(hierarchy)
         num_jts = len(names)
 
-        """ Get indices of left joints """
+        """ Get indices of left and right joints """
         left_jts = []
         for jt in range(1, num_jts):
             name = names[jt]
             if 'Left' in name:
                 left_jts.append(jt)
+        right_jts = []
+        for jt in range(1, num_jts):
+            name = names[jt]
+            if 'Right' in name:
+                right_jts.append(jt)
+
+        # Ensure we have left-right bijectivity
+        assert len(left_jts) == len(right_jts), 'Must have same number of left and right joints'
 
         mir_map = [jt for jt in range(num_jts)]
 

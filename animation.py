@@ -79,8 +79,7 @@ class AnimationClip:
                                        step * self.frame_time, positions).copy())
         return anims
 
-    def mirror(self):
-        mir_map = self.skeleton.generate_mir_map()
+    def mirror(self, mir_map):
         rotation.reorder_quat_axes_inplace(self.rotations, 0, 1, 2, mir_x=True)
         rots_temp = self.rotations.copy()
 
