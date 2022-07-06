@@ -78,8 +78,7 @@ class AnimationClip:
         return anims
 
     def mirror(self):
-        self.skeleton.generate_mir_map()
-        mir_map = self.skeleton.mir_map
+        mir_map = self.skeleton.generate_mir_map()
         rotation.reorder_quat_axes_inplace(self.rotations, 0, 1, 2, mir_x=True)
         rots_temp = self.rotations.copy()
 
