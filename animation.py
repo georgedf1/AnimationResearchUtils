@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 from skeleton import Skeleton
 import rotation
@@ -234,6 +236,92 @@ class AnimationClip:
         new_positions[1] = old_root_posis
 
         return AnimationClip(new_root_posis, new_rotations, new_skeleton, frame_time, new_positions)
+
+    def remove_joints(self, jts: typing.Sequence[int]):
+        """ Removes joints jts and all their children from the animation """
+
+        assert 0 not in jts, 'Cannot remove root joint'
+        assert len(list(set(jts))) == len(jts), 'jts must have unique entries'
+
+        # Make copies of everything
+        root_pos = self.root_positions.copy()
+        rots = self.rotations.copy()
+        posis = {}
+        for jt in self.positions:
+            posis[jt] = self.positions[jt].copy()
+        jt_hierarchy = self.skeleton.jt_hierarchy.copy()
+        jt_offsets = self.skeleton.jt_offsets.copy()
+        jt_names = self.skeleton.jt_names.copy()
+        end_offsets = self.skeleton.end_offsets.copy()
+
+        # All children should become new endsites
+        jts_to_become_ends = []
+        for jt in jts:
+            jt_children = np.nonzero(jt_hierarchy == jt)[0]
+            for jt_c in jt_children:
+                if jt_c not in jts_to_become_ends:
+                    jts_to_become_ends.append(jt_c)
+
+        # Figure out which joints to remove (depth first search for children)
+        jts_to_remove = []
+        jts_to_check = list(set(jts))
+        while len(jts_to_check) != 0:
+            jt = jts_to_check.pop()
+            if jt in jts_to_remove:
+                continue
+            jts_to_remove.append(jt)
+            jt_children = np.nonzero(jt_hierarchy == jt)[0]
+            for jt_c in jt_children:
+                jts_to_check.append(jt_c)
+
+        # Remove all data for each jt in jts_to_remove
+        rots = np.delete(rots, jts_to_remove, axis=1)
+        for jt in jts_to_remove:
+            if jt in posis:
+                posis.pop(jt)
+            if jt in end_offsets:
+                end_offsets.pop(jt)
+        jt_offsets = np.delete(jt_offsets, jts_to_remove, axis=0)
+        jt_names = np.delete(jt_names, jts_to_remove, axis=0)
+
+        # Correcting explicit joint indices is more complex as we must correct these indices
+        # Do this with a map
+        old_to_new_jts_map = {}
+        jt_corr = 0
+        for jt in range(len(jt_hierarchy)):
+            if jt in jts_to_remove:
+                jt_corr += 1
+                continue
+            old_to_new_jts_map[jt] = jt - jt_corr
+
+        # Correct hierarchy
+        jt_hierarchy = np.delete(jt_hierarchy, jts_to_remove, axis=0)
+        for new_jt in range(1, len(jt_hierarchy)):
+            jt_hierarchy[new_jt] = old_to_new_jts_map[jt_hierarchy[new_jt]]
+
+        # Correct positions
+        new_posis = {}
+        for old_jt in posis:
+            new_jt = old_to_new_jts_map[old_jt]
+            new_posis[new_jt] = posis[old_jt]
+        posis = new_posis
+
+        # Correct end offsets
+        new_end_offsets = {}
+        for old_jt in end_offsets:
+            new_jt = old_to_new_jts_map[old_jt]
+            new_end_offsets[new_jt] = end_offsets[old_jt]
+        end_offsets = new_end_offsets
+
+        # Create new end sites
+        for old_jt in jts:
+            old_par_jt = self.skeleton.jt_hierarchy[old_jt]
+            offset = self.skeleton.jt_offsets[old_jt]
+            end_offsets[old_to_new_jts_map[old_par_jt]] = offset.copy()
+
+        # Wrap and return
+        skel = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_offsets)
+        return AnimationClip(root_pos, rots, skel, self.frame_time, posis)
 
 
 if __name__ == '__main__':
