@@ -1,12 +1,13 @@
 import plotly.graph_objects as go
 import numpy as np
 import animation
+import skeleton
 import kinematics
 
 
 def plot_animation(anim: animation.AnimationClip,
                    other_anim: animation.AnimationClip=None,
-                   ft_ms=None, end_sites=False, ignore_root=False,
+                   ft_ms=None, end_sites=True, ignore_root=False,
                    marker_size=5, line_size=4):
 
     if ft_ms is None:
@@ -103,9 +104,9 @@ def plot_animation(anim: animation.AnimationClip,
         for jt in end_pos_data:
             if jt == 0 and ignore_root:
                 continue
-            xs.append(end_pos_data[jt][fr, :, 0])
-            ys.append(end_pos_data[jt][fr, :, 1])
-            zs.append(end_pos_data[jt][fr, :, 2])
+            xs.append(end_pos_data[jt][fr, 0])
+            ys.append(end_pos_data[jt][fr, 1])
+            zs.append(end_pos_data[jt][fr, 2])
         xs = np.asarray(xs)
         ys = np.asarray(ys)
         zs = np.asarray(zs)
@@ -192,7 +193,7 @@ def plot_animation(anim: animation.AnimationClip,
     fig.show()
 
 
-def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker_size=4):
+def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker_size=5):
 
     num_frames, num_jts = positions.shape[0:2]
 
@@ -271,7 +272,7 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
     fig = go.Figure(
         data=get_data(0),
         layout=go.Layout(
-            title='Animation plot',
+            title='Positions plot',
             hovermode='closest',
             scene=dict(
                 aspectmode='cube',
@@ -285,6 +286,133 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
                                             args=[None, frame_args(ft_ms)])])]
         ),
         frames=[go.Frame(data=get_data(fr)) for fr in range(num_frames)]
+    )
+
+    fig.show()
+
+
+def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_size=4):
+
+    root_pos = np.zeros((1, 3))
+    root_rots = np.zeros((1, skel.num_jts, 4))
+    root_rots[..., 0] = 1.0
+    positions = {}
+    global_posis, _, global_end_posis = kinematics.forward_kinematics(root_pos, root_rots, skel, positions)
+
+    x_min = np.min(global_posis[..., 0])
+    x_max = np.max(global_posis[..., 0])
+    y_min = np.min(global_posis[..., 1])
+    y_max = np.max(global_posis[..., 1])
+    z_min = np.min(global_posis[..., 2])
+    z_max = np.max(global_posis[..., 2])
+
+    max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
+    if x_max - x_min < max_val:
+        x_max = x_max * max_val / (x_max - x_min)
+        x_min = x_min * max_val / (x_max - x_min)
+    if y_max - y_min < max_val:
+        y_max = y_max * max_val / (y_max - y_min)
+        y_min = y_min * max_val / (y_max - y_min)
+    if x_max - x_min < max_val:
+        z_max = z_max * max_val / (z_max - z_min)
+        z_min = z_min * max_val / (z_max - z_min)
+
+    # Expand boundaries a bit to prevent clipping with edges
+    dilation = 2.0
+    # X
+    x_mid = (x_max + x_min) / 2
+    x_diff = (x_max - x_min) / 2
+    x_min = x_mid - dilation * x_diff
+    x_max = x_mid + dilation * x_diff
+    # Y
+    y_mid = (y_max + y_min) / 2
+    y_diff = (y_max - y_min) / 2
+    y_min = y_mid - dilation * y_diff
+    y_max = y_mid + dilation * y_diff
+    # Z
+    z_mid = (z_max + z_min) / 2
+    z_diff = (z_max - z_min) / 2
+    z_min = z_mid - dilation * z_diff
+    z_max = z_mid + dilation * z_diff
+
+    def get_joint_data():
+        return go.Scatter3d(
+            x=global_posis[0, :, 0], y=global_posis[0, :, 1], z=global_posis[0, :, 2],
+            mode='markers+text',
+            marker=dict(color='blue', size=marker_size),
+            text=skel.jt_names.copy()
+        )
+
+    def get_end_joint_data():
+        xs = []
+        ys = []
+        zs = []
+        for jt in global_end_posis:
+            xs.append(global_end_posis[jt][0, 0])
+            ys.append(global_end_posis[jt][0, 1])
+            zs.append(global_end_posis[jt][0, 2])
+        xs = np.asarray(xs)
+        ys = np.asarray(ys)
+        zs = np.asarray(zs)
+        return go.Scatter3d(
+            x=xs, y=ys, z=zs, mode='markers', marker=dict(color='red', size=marker_size)
+        )
+
+    def get_bone_data():
+        xs = []
+        ys = []
+        zs = []
+        for jt in range(1, skel.num_jts):
+            par_jt = skel.jt_hierarchy[jt]
+            xs.append(global_posis[0, par_jt, 0])
+            xs.append(global_posis[0, jt, 0])
+            xs.append(None)
+            ys.append(global_posis[0, par_jt, 1])
+            ys.append(global_posis[0, jt, 1])
+            ys.append(None)
+            zs.append(global_posis[0, par_jt, 2])
+            zs.append(global_posis[0, jt, 2])
+            zs.append(None)
+        return go.Scatter3d(
+            x=xs, y=ys, z=zs, mode='lines', line=dict(color='blue', width=line_size)
+        )
+
+    def get_end_bone_data():
+        xs = []
+        ys = []
+        zs = []
+        for jt in global_end_posis:
+            xs.append(global_posis[0, jt, 0])
+            xs.append(global_end_posis[jt][0, 0])
+            xs.append(None)
+            ys.append(global_posis[0, jt, 1])
+            ys.append(global_end_posis[jt][0, 1])
+            ys.append(None)
+            zs.append(global_posis[0, jt, 2])
+            zs.append(global_end_posis[jt][0, 2])
+            zs.append(None)
+        return go.Scatter3d(
+            x=xs, y=ys, z=zs, mode='lines', line=dict(color='blue', width=line_size)
+        )
+
+    def get_data():
+        if end_sites:
+            return [get_joint_data(), get_bone_data(), get_end_bone_data(), get_end_joint_data()]
+        else:
+            return [get_joint_data(), get_bone_data()]
+
+    fig = go.Figure(
+        data=get_data(),
+        layout=go.Layout(
+            title='Skeleton plot',
+            hovermode='closest',
+            scene=dict(
+                aspectmode='cube',
+                xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
+                yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
+                zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
+            )
+        )
     )
 
     fig.show()
