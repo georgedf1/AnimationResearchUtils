@@ -15,7 +15,9 @@ class AnimationClip:
         positions: (dict) Optional, contains a dict mapping a jt idxs to arrays of local positions for moving offsets.
     """
 
-    def __init__(self, root_positions, rotations, skeleton: Skeleton, frame_time, positions={}):
+    def __init__(self, root_positions: np.ndarray, rotations: np.ndarray,
+                 skeleton: Skeleton, frame_time: float,
+                 positions: dict = None, name: str = ''):
         self.num_frames = root_positions.shape[0]
         assert self.num_frames == rotations.shape[0],\
             'num_frames and rotations.shape[0] should match but are {} and {}'.format(
@@ -27,27 +29,31 @@ class AnimationClip:
         self.rotations = rotations
         self.skeleton = skeleton
         self.frame_time = frame_time
+        if positions is None:
+            positions = {}
         for jt in positions:
             assert jt != 0, 'Use root_positions for the root joint (global) position instead'
             assert positions[jt].shape[0] == self.num_frames
             assert positions[jt].shape[1] == 3
         self.positions = positions
+        self.name = name
 
     def __len__(self):
         return self.num_frames
 
     def __getitem__(self, k):
+        """ Copies, so can't set into an AnimationClip using this """
         positions = {}
         if isinstance(k, int):
             for jt in self.positions:
                 positions[jt] = self.positions[jt][k:k + 1]
             return AnimationClip(self.root_positions[k:k + 1], self.rotations[k:k + 1],
-                                 self.skeleton, self.frame_time, positions).copy()
+                                 self.skeleton, self.frame_time, positions, self.name).copy()
         elif isinstance(k, slice):
             for jt in self.positions:
                 positions[jt] = self.positions[jt][k]
             return AnimationClip(self.root_positions[k], self.rotations[k],
-                                 self.skeleton, self.frame_time, positions).copy()
+                                 self.skeleton, self.frame_time, positions, self.name).copy()
         else:
             raise TypeError("Accessing Animation class with invalid index type")
 
@@ -60,23 +66,23 @@ class AnimationClip:
         for jt in self.positions:
             positions[jt] = self.positions[jt].copy()
         return AnimationClip(self.root_positions.copy(), self.rotations.copy(), self.skeleton.copy(), self.frame_time,
-                             positions)
+                             positions, self.name)
 
     def subsample(self, step=2):
         positions = {}
         for jt in self.positions:
-            positions[jt] = self.positions[jt][::step]
-        return AnimationClip(self.root_positions[::step], self.rotations[::step], self.skeleton,
-                             step * self.frame_time, positions).copy()
+            positions[jt] = self.positions[jt][::step].copy()
+        return AnimationClip(self.root_positions[::step].copy(), self.rotations[::step].copy(), self.skeleton.copy(),
+                             step * self.frame_time, positions, self.name)
 
     def subsample_keep_all(self, step=2):
         anims = []
         for s in range(step):
             positions = {}
             for jt in self.positions:
-                positions[jt] = self.positions[jt][s::step]
-            anims.append(AnimationClip(self.root_positions[s::step], self.rotations[s::step], self.skeleton,
-                                       step * self.frame_time, positions).copy())
+                positions[jt] = self.positions[jt][s::step].copy()
+            anims.append(AnimationClip(self.root_positions[s::step].copy(), self.rotations[s::step].copy(),
+                                       self.skeleton.copy(), step * self.frame_time, positions, self.name))
         return anims
 
     def mirror(self, mir_map):
@@ -100,7 +106,7 @@ class AnimationClip:
         positions = {}
         for jt in self.positions:
             positions[jt] = np.append(self.positions[jt], anim.positions[jt], axis=0)
-        return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions).copy()
+        return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions, self.name).copy()
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
         # Note: mir_o mirrors the new o axis not the old o axis.
@@ -234,7 +240,7 @@ class AnimationClip:
         # Save old root positions to positions
         new_positions[1] = old_root_posis
 
-        return AnimationClip(new_root_posis, new_rotations, new_skeleton, frame_time, new_positions)
+        return AnimationClip(new_root_posis, new_rotations, new_skeleton, frame_time, new_positions, self.name)
 
     def remove_joints(self, jts: typing.Sequence[int]):
         """ Removes joints jts and all their children from the animation """
@@ -320,7 +326,7 @@ class AnimationClip:
 
         # Wrap and return
         skel = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_offsets)
-        return AnimationClip(root_pos, rots, skel, self.frame_time, posis)
+        return AnimationClip(root_pos, rots, skel, self.frame_time, posis, self.name)
 
 
 if __name__ == '__main__':
