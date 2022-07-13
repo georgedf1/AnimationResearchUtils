@@ -222,10 +222,10 @@ def plot_animation(anim: animation.AnimationClip,
     frames = [go.Frame(data=get_data(fr), name=str(fr)) for fr in range(num_frames)]
 
     scene = dict(
-                aspectmode='cube',
-                xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
-                yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
-                zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
+        aspectmode='cube',
+        xaxis=dict(range=[x_min, x_max], nticks=10, autorange=False, zeroline=False),
+        yaxis=dict(range=[y_min, y_max], nticks=10, autorange=False, zeroline=False),
+        zaxis=dict(range=[z_min, z_max], nticks=10, autorange=False, zeroline=False)
     )
 
     layout_dict = dict(
@@ -324,9 +324,9 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
 
     scene = dict(
         aspectmode='cube',
-        xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
-        yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
-        zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
+        xaxis=dict(range=[x_min, x_max], nticks=10, autorange=False, zeroline=False),
+        yaxis=dict(range=[y_min, y_max], nticks=10, autorange=False, zeroline=False),
+        zaxis=dict(range=[z_min, z_max], nticks=10, autorange=False, zeroline=False)
     )
 
     layout_dict = dict(
