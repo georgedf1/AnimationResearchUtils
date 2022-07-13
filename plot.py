@@ -5,10 +5,66 @@ import skeleton
 import kinematics
 
 
+def __play_args(duration):
+    return dict(
+        frame=dict(duration=duration, redraw=True),
+        mode='immediate',
+        fromcurrent=True,
+        # transition=dict(duration=duration)
+    )
+
+
+def __pause_args():
+    return dict(
+        frame=dict(duration=0, redraw=True),
+        mode='immediate',
+        transition=dict(duration=0)
+    )
+
+
+def __get_updatemenus(ft_ms):
+    return [
+        dict(type='buttons',
+             buttons=[dict(label='Play',
+                           method='animate',
+                           args=[None, __play_args(ft_ms)]),
+                      dict(label='Pause',
+                           method='animate',
+                           args=[[None], __pause_args()])
+                      ],
+             direction='left',
+             pad=dict(r=10, t=87),
+             showactive=False,
+             x=0.1,
+             xanchor='right',
+             y=0,
+             yanchor='top')
+    ]
+
+
+def __get_sliders(frames, slider_pts):
+    return [dict(
+        pad=dict(b=10, t=50),
+        len=0.9,
+        x=0.1,
+        y=0,
+        steps=[
+            dict(args=[[frames[fr].name], __pause_args()],
+                 label=fr,
+                 method='animate')
+            for fr in range(0, len(frames), len(frames) // slider_pts + 1)
+        ]
+    )]
+
+
 def plot_animation(anim: animation.AnimationClip,
-                   other_anim: animation.AnimationClip=None,
+                   other_anim: animation.AnimationClip = None,
                    ft_ms=None, end_sites=True, ignore_root=False,
-                   marker_size=5, line_size=4):
+                   marker_size=5, line_size=4, name='',
+                   use_slider=True, slider_pts=20):
+
+    if use_slider and slider_pts > 20:
+        print('Warning: use_slider=True can reduce playback performance significantly for higher values of slider_pts!')
 
     if ft_ms is None:
         ft_ms = 1000 * anim.frame_time
@@ -53,7 +109,7 @@ def plot_animation(anim: animation.AnimationClip,
     if y_max - y_min < max_val:
         y_max = y_max * max_val / (y_max - y_min)
         y_min = y_min * max_val / (y_max - y_min)
-    if x_max - x_min < max_val:
+    if z_max - z_min < max_val:
         z_max = z_max * max_val / (z_max - z_min)
         z_min = z_min * max_val / (z_max - z_min)
 
@@ -74,14 +130,6 @@ def plot_animation(anim: animation.AnimationClip,
     z_diff = (z_max - z_min) / 2
     z_min = z_mid - dilation * z_diff
     z_max = z_mid + dilation * z_diff
-
-    def frame_args(duration):
-        return dict(
-            frame=dict(duration=duration),
-            mode='immediate',
-            fromcurrent=True,
-            transition=dict(duration=duration, easing='cubic-in-out')
-        )
 
     def get_joint_data(pos_data, fr, color):
         if ignore_root:
@@ -171,29 +219,40 @@ def plot_animation(anim: animation.AnimationClip,
             i += 1
         return data
 
-    fig = go.Figure(
-        data=get_data(0),
-        layout=go.Layout(
-            title='Animation plot',
-            hovermode='closest',
-            scene=dict(
+    frames = [go.Frame(data=get_data(fr), name=str(fr)) for fr in range(num_frames)]
+
+    scene = dict(
                 aspectmode='cube',
                 xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
                 yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
                 zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
-            ),
-            updatemenus=[dict(type='buttons',
-                              buttons=[dict(label='Play',
-                                            method='animate',
-                                            args=[None, frame_args(ft_ms)])])]
-        ),
-        frames=[go.Frame(data=get_data(fr)) for fr in range(num_frames)]
+    )
+
+    layout_dict = dict(
+        title='Animation plot - ' + name,
+        hovermode='closest',
+        scene=scene,
+        updatemenus=__get_updatemenus(ft_ms)
+    )
+    if use_slider:
+        layout_dict['sliders'] = __get_sliders(frames, slider_pts)
+
+    layout = go.Layout(**layout_dict)
+
+    fig = go.Figure(
+        data=get_data(0),
+        layout=layout,
+        frames=frames
     )
 
     fig.show()
 
 
-def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker_size=5):
+def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker_size=5, name='',
+                   use_slider=True, slider_pts=20):
+
+    if use_slider and slider_pts > 20:
+        print('Warning: use_slider=True can reduce playback performance significantly for higher values of slider_pts!')
 
     num_frames, num_jts = positions.shape[0:2]
 
@@ -220,7 +279,7 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
     if y_max - y_min < max_val:
         y_max = y_max * max_val / (y_max - y_min)
         y_min = y_min * max_val / (y_max - y_min)
-    if x_max - x_min < max_val:
+    if z_max - z_min < max_val:
         z_max = z_max * max_val / (z_max - z_min)
         z_min = z_min * max_val / (z_max - z_min)
 
@@ -242,14 +301,6 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
     z_min = z_mid - dilation * z_diff
     z_max = z_mid + dilation * z_diff
 
-    def frame_args(duration):
-        return dict(
-            frame=dict(duration=duration),
-            mode='immediate',
-            fromcurrent=True,
-            transition=dict(duration=duration, easing='cubic-in-out')
-        )
-
     def get_data(fr):
         xs = positions[fr, :, 0]
         ys = positions[fr, :, 1]
@@ -269,23 +320,29 @@ def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker
 
         return data
 
+    frames = [go.Frame(data=get_data(fr), name=str(fr)) for fr in range(num_frames)]
+
+    scene = dict(
+        aspectmode='cube',
+        xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
+        yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
+        zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
+    )
+
+    layout_dict = dict(
+        title='Positions plot - ' + name,
+        hovermode='closest',
+        scene=scene,
+        updatemenus=__get_updatemenus(ft_ms)
+    )
+    if use_slider:
+        layout_dict['sliders'] = __get_sliders(frames, slider_pts)
+    layout = go.Layout(**layout_dict)
+
     fig = go.Figure(
         data=get_data(0),
-        layout=go.Layout(
-            title='Positions plot',
-            hovermode='closest',
-            scene=dict(
-                aspectmode='cube',
-                xaxis=dict(range=[x_min, x_max], autorange=False, zeroline=False),
-                yaxis=dict(range=[y_min, y_max], autorange=False, zeroline=False),
-                zaxis=dict(range=[z_min, z_max], autorange=False, zeroline=False)
-            ),
-            updatemenus=[dict(type='buttons',
-                              buttons=[dict(label='Play',
-                                            method='animate',
-                                            args=[None, frame_args(ft_ms)])])]
-        ),
-        frames=[go.Frame(data=get_data(fr)) for fr in range(num_frames)]
+        layout=layout,
+        frames=frames
     )
 
     fig.show()
@@ -429,14 +486,13 @@ if __name__ == "__main__":
     # anim2 = anim.copy()
     # anim2.root_positions[..., 0] += 10.0
     # plot_animation(anim, anim2, ignore_root=True)
-    plot_animation(anim, ignore_root=True)
+    # plot_animation(anim, ignore_root=True)
 
-    # root_posis = anim.root_positions.copy()
-    # rots = anim.rotations.copy()
-    # skel = anim.skeleton.copy()
-    # posis = {}
-    # for jt in anim.positions:
-    #     posis[jt] = anim.positions[jt].copy()
-    # global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-    # plot_positions(global_posis)
-
+    root_posis = anim.root_positions.copy()
+    rots = anim.rotations.copy()
+    skel = anim.skeleton.copy()
+    posis = {}
+    for jt in anim.positions:
+        posis[jt] = anim.positions[jt].copy()
+    global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
+    plot_positions(global_posis, ft_ms=1000*anim.frame_time, use_slider=True)
