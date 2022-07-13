@@ -60,7 +60,7 @@ def __get_sliders(frames, slider_pts):
 def plot_animation(anim: animation.AnimationClip,
                    other_anim: animation.AnimationClip = None,
                    ft_ms=None, end_sites=True, ignore_root=False,
-                   marker_size=5, line_size=4, name='',
+                   marker_size=5, line_size=4,
                    use_slider=True, slider_pts=20):
 
     if use_slider and slider_pts > 20:
@@ -227,9 +227,11 @@ def plot_animation(anim: animation.AnimationClip,
         yaxis=dict(range=[y_min, y_max], nticks=10, autorange=False, zeroline=False),
         zaxis=dict(range=[z_min, z_max], nticks=10, autorange=False, zeroline=False)
     )
-
+    other_anim_name = ''
+    if other_anim is not None:
+        other_anim_name = ' and ' + other_anim.name
     layout_dict = dict(
-        title='Animation plot - ' + name,
+        title='Animation plot - ' + anim.name + other_anim_name,
         hovermode='closest',
         scene=scene,
         updatemenus=__get_updatemenus(ft_ms)
