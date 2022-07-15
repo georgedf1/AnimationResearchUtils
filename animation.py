@@ -24,7 +24,9 @@ class AnimationClip:
                 self.num_frames, rotations.shape[0])
         assert root_positions.shape[1] == 3
         self.num_jts = len(skeleton.jt_hierarchy)
-        assert self.num_jts == rotations.shape[1]
+        assert self.num_jts == rotations.shape[1], \
+            'num_jts and rotations.shape[1] should match but are {} and {}'.format(
+                self.num_jts, rotations.shape[1])
         self.root_positions = root_positions
         self.rotations = rotations
         self.skeleton = skeleton
@@ -271,7 +273,7 @@ class AnimationClip:
                         break
                 assert found, 'Invalid joint name in jts: ' + jts[i]
             elif isinstance(jts[i], int):
-                assert jts[i] < len(jts), 'Joint indices must be less than length ' + str(len(jts))
+                assert jts[i] < len(jt_hierarchy), 'Joint indices must be less than length ' + str(len(jts))
 
         # All children should become new endsites
         jts_to_become_ends = []
