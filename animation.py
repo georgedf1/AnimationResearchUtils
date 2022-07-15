@@ -242,8 +242,8 @@ class AnimationClip:
 
         return AnimationClip(new_root_posis, new_rotations, new_skeleton, frame_time, new_positions, self.name)
 
-    def remove_joints(self, jts: typing.Sequence[int]):
-        """ Removes joints jts and all their children from the animation """
+    def remove_joints(self, jts: typing.Sequence[typing.Union[int, str]], new_endsites=True):
+        """ Removes joints jts and all their children from the animation (inclusive) """
 
         assert 0 not in jts, 'Cannot remove root joint'
         assert len(list(set(jts))) == len(jts), 'jts must have unique entries'
@@ -258,6 +258,20 @@ class AnimationClip:
         jt_offsets = self.skeleton.jt_offsets.copy()
         jt_names = self.skeleton.jt_names.copy()
         end_offsets = self.skeleton.end_offsets.copy()
+
+        # Assertions, and convert any string names to integer indices
+        jts = list(jts)
+        for i in range(len(jts)):
+            if isinstance(jts[i], str):
+                found = False
+                for skel_jt, jt_name in enumerate(jt_names):
+                    if jt_name == jts[i]:
+                        jts[i] = skel_jt
+                        found = True
+                        break
+                assert found, 'Invalid joint name in jts: ' + jts[i]
+            elif isinstance(jts[i], int):
+                assert jts[i] < len(jts), 'Joint indices must be less than length ' + str(len(jts))
 
         # All children should become new endsites
         jts_to_become_ends = []
@@ -318,11 +332,14 @@ class AnimationClip:
             new_end_offsets[new_jt] = end_offsets[old_jt]
         end_offsets = new_end_offsets
 
-        # Create new end sites
-        for old_jt in jts:
-            old_par_jt = self.skeleton.jt_hierarchy[old_jt]
-            offset = self.skeleton.jt_offsets[old_jt]
-            end_offsets[old_to_new_jts_map[old_par_jt]] = offset.copy()
+        # Create new end sites.
+        # Note that some end sites may be overwritten due to the 1 end site per joint limitation
+        if new_endsites:
+            for old_jt in jts:
+                old_par_jt = self.skeleton.jt_hierarchy[old_jt]
+                if old_par_jt not in jts_to_remove:
+                    offset = self.skeleton.jt_offsets[old_jt]
+                    end_offsets[old_to_new_jts_map[old_par_jt]] = offset.copy()
 
         # Wrap and return
         skel = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_offsets)
