@@ -250,12 +250,13 @@ def plot_animation(anim: animation.AnimationClip,
     fig.show()
 
 
-def plot_positions(positions: np.ndarray, other_positions=None, ft_ms=50, marker_size=5, name='',
+def plot_positions(positions: np.ndarray, frame_time, other_positions=None, marker_size=5, name='',
                    use_slider=True, slider_pts=20):
 
     if use_slider and slider_pts > 20:
         print('Warning: use_slider=True can reduce playback performance significantly for higher values of slider_pts!')
 
+    ft_ms = 1000.0 * frame_time
     num_frames, num_jts = positions.shape[0:2]
 
     if other_positions is not None:
@@ -480,7 +481,8 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
 if __name__ == "__main__":
     """ Test plotting animation """
     import bvh
-    LOAD_PATH = 'C:/Research/Data/CAMERA_bvh/Kaya/Kaya03_walk.bvh'
+    # LOAD_PATH = 'C:/Research/Data/CAMERA_bvh/Kaya/Kaya03_walk.bvh'
+    LOAD_PATH = 'D:/Research/Data/LAFAN1/walk1_subject5.bvh'
     anim = bvh.load_bvh(LOAD_PATH, downscale=1.0)
     anim = anim.extract_root_motion()
     anim.reorder_axes_inplace(2, 0, 1)
@@ -497,4 +499,4 @@ if __name__ == "__main__":
     for jt in anim.positions:
         posis[jt] = anim.positions[jt].copy()
     global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-    plot_positions(global_posis, ft_ms=1000*anim.frame_time, use_slider=True)
+    plot_positions(global_posis, frame_time=anim.frame_time, use_slider=True)
