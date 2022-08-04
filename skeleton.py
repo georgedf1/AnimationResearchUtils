@@ -7,7 +7,10 @@ class Skeleton:
         self.jt_names = jt_names
         self.jt_hierarchy = np.array(jt_hierarchy)
         self.jt_offsets = np.array(jt_offsets)
-        self.end_offsets = end_offsets
+        end_offsets_np = {}
+        for k in end_offsets:
+            end_offsets_np[k] = np.array(end_offsets[k])
+        self.end_offsets = end_offsets_np
         self.num_jts = len(self.jt_hierarchy)
 
     def __eq__(self, other):
