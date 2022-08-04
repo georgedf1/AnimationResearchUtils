@@ -104,14 +104,14 @@ def plot_animation(anim: animation.AnimationClip,
     # TODO Make more sophisticated (keep centre zero)
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
-        x_max = x_max * max_val / (x_max - x_min)
-        x_min = x_min * max_val / (x_max - x_min)
+        x_max = x_max * max_val / (x_max - x_min + 1e-8)
+        x_min = x_min * max_val / (x_max - x_min + 1e-8)
     if y_max - y_min < max_val:
-        y_max = y_max * max_val / (y_max - y_min)
-        y_min = y_min * max_val / (y_max - y_min)
+        y_max = y_max * max_val / (y_max - y_min + 1e-8)
+        y_min = y_min * max_val / (y_max - y_min + 1e-8)
     if z_max - z_min < max_val:
-        z_max = z_max * max_val / (z_max - z_min)
-        z_min = z_min * max_val / (z_max - z_min)
+        z_max = z_max * max_val / (z_max - z_min + 1e-8)
+        z_min = z_min * max_val / (z_max - z_min + 1e-8)
 
     # Expand boundaries a bit to prevent clipping with edges
     dilation = 1.1
@@ -490,13 +490,13 @@ if __name__ == "__main__":
     # anim2 = anim.copy()
     # anim2.root_positions[..., 0] += 10.0
     # plot_animation(anim, anim2, ignore_root=True)
-    # plot_animation(anim, ignore_root=True)
+    plot_animation(anim, ignore_root=True)
 
-    root_posis = anim.root_positions.copy()
-    rots = anim.rotations.copy()
-    skel = anim.skeleton.copy()
-    posis = {}
-    for jt in anim.positions:
-        posis[jt] = anim.positions[jt].copy()
-    global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-    plot_positions(global_posis, frame_time=anim.frame_time, use_slider=True)
+    # root_posis = anim.root_positions.copy()
+    # rots = anim.rotations.copy()
+    # skel = anim.skeleton.copy()
+    # posis = {}
+    # for jt in anim.positions:
+    #     posis[jt] = anim.positions[jt].copy()
+    # global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
+    # plot_positions(global_posis, frame_time=anim.frame_time, use_slider=True)
