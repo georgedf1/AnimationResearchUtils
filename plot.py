@@ -63,7 +63,7 @@ def __get_sliders(frames, slider_pts):
 def plot_animation(anim: animation.AnimationClip,
                    other_anim: animation.AnimationClip = None,
                    ft_ms=None, end_sites=True, ignore_root=False,
-                   marker_size=5, line_size=4,
+                   marker_size=5, line_size=4, end_marker_diff_color=False,
                    use_slider=True, slider_pts=20):
 
     if use_slider and slider_pts > 20:
@@ -226,11 +226,13 @@ def plot_animation(anim: animation.AnimationClip,
         data = []
         for posis, end_posis in zip(posis_list, end_posis_list):
             color = 'blue' if i == 0 else 'red'
+            other_color = 'red' if color == 'blue' else 'blue'
+            end_color = other_color if end_marker_diff_color else color
             data.append(get_joint_data(posis, fr, color))
             data.append(get_bone_data(posis, fr, color))
             if end_sites:
-                data.append(get_end_joint_data(end_posis, fr, color))
-                data.append(get_end_bone_data(posis, end_posis, fr, color))
+                data.append(get_end_joint_data(end_posis, fr, end_color))
+                data.append(get_end_bone_data(posis, end_posis, fr, end_color))
             i += 1
         return data
 
