@@ -4,10 +4,11 @@ import rotation
 
 def forward_kinematics(root_positions, rotations, skeleton, positions=None, local_to_root=False):
     """
-    :param root_positions: (np.ndarray) root positions shape (..., 3)
-    :param rotations: (np.ndarray) local joint rotations shape (..., J, 4)
-    :param skeleton: (Skeleton)
+    :param root_positions: (np.ndarray) root positions of shape (..., 3)
+    :param rotations: (np.ndarray) local joint rotations of shape (..., J, 4)
+    :param skeleton: (Skeleton) skeleton
     :param positions: (dict) dictionary mapping jt to local position offset (overriding the offset for that jt)
+    :param local_to_root: (bool) if true produces results local to root joint's frame of reference
     :return: (np.ndarray) global_positions (local to the root position) of shape (..., J, 3),
         (np.ndarray) global_rotations of shape (..., J, 4)
         (dict) global_end_sites - maps a jt to its child end site global position if it has one
@@ -26,12 +27,12 @@ def forward_kinematics(root_positions, rotations, skeleton, positions=None, loca
     end_offsets = skeleton.end_offsets
 
     if local_to_root:
-        global_positions[..., 0] = 0.0
-        global_rotations[..., 0] = 0.0
+        global_positions[..., 0, :] = 0.0
+        global_rotations[..., 0, :] = 0.0
         global_rotations[..., 0, 0] = 1.0
     else:
-        global_positions[:, 0] = root_positions
-        global_rotations[:, 0] = rotations[:, 0]
+        global_positions[..., 0, :] = root_positions
+        global_rotations[..., 0, :] = rotations[..., 0, :]
 
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
@@ -59,7 +60,8 @@ def local_to_global(fk_pos, fk_end_pos, root_pos, root_rot):
     outputs global position and global end positions rotated by root_rot (root is pivot) and then shifted by root_pos
     """
 
-    assert np.all(fk_pos[..., 0, :] == 0.0)
+    assert np.all(fk_pos[..., 0, :] == 0.0),\
+        'Expected root fk positions to be zero, did you intend call local_to_global?'
 
     global_pos = root_pos[..., None, :] + rotation.quat_mul_vec(root_rot[..., None, :], fk_pos)
 

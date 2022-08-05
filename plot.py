@@ -5,6 +5,9 @@ import skeleton
 import kinematics
 
 
+PLOT_EPSILON = 1e-8
+
+
 def __play_args(duration):
     return dict(
         frame=dict(duration=duration, redraw=True),
@@ -78,7 +81,7 @@ def plot_animation(anim: animation.AnimationClip,
         posis[jt] = anim.positions[jt].copy()
 
     global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-
+    end_posis_list = [global_end_posis]
     if other_anim is not None:
         other_root_posis = other_anim.root_positions.copy()
         other_rots = other_anim.rotations.copy()
@@ -89,6 +92,8 @@ def plot_animation(anim: animation.AnimationClip,
 
         other_global_posis, _, other_global_end_posis = kinematics.forward_kinematics(
             other_root_posis, other_rots, other_skel, other_posis)
+
+        end_posis_list.append(other_global_end_posis)
 
         stat_positions = np.append(global_posis, other_global_posis, axis=1)
     else:
@@ -101,17 +106,27 @@ def plot_animation(anim: animation.AnimationClip,
     z_min = np.min(stat_positions[..., 2])
     z_max = np.max(stat_positions[..., 2])
 
+    if end_sites:
+        for end_posis in end_posis_list:
+            for jt in end_posis:
+                x_min = min(x_min, np.min(end_posis[jt][..., 0]))
+                x_max = max(x_max, np.max(end_posis[jt][..., 0]))
+                y_min = min(y_min, np.min(end_posis[jt][..., 1]))
+                y_max = max(y_max, np.max(end_posis[jt][..., 1]))
+                z_min = min(z_min, np.min(end_posis[jt][..., 2]))
+                z_max = max(z_max, np.max(end_posis[jt][..., 2]))
+
     # TODO Make more sophisticated (keep centre zero)
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
-        x_max = x_max * max_val / (x_max - x_min + 1e-8)
-        x_min = x_min * max_val / (x_max - x_min + 1e-8)
+        x_max = x_max * max_val / ((x_max - x_min) + PLOT_EPSILON)
+        x_min = x_min * max_val / ((x_max - x_min) + PLOT_EPSILON)
     if y_max - y_min < max_val:
-        y_max = y_max * max_val / (y_max - y_min + 1e-8)
-        y_min = y_min * max_val / (y_max - y_min + 1e-8)
+        y_max = y_max * max_val / ((y_max - y_min) + PLOT_EPSILON)
+        y_min = y_min * max_val / ((y_max - y_min) + PLOT_EPSILON)
     if z_max - z_min < max_val:
-        z_max = z_max * max_val / (z_max - z_min + 1e-8)
-        z_min = z_min * max_val / (z_max - z_min + 1e-8)
+        z_max = z_max * max_val / ((z_max - z_min) + PLOT_EPSILON)
+        z_min = z_min * max_val / ((z_max - z_min) + PLOT_EPSILON)
 
     # Expand boundaries a bit to prevent clipping with edges
     dilation = 1.1
@@ -277,14 +292,14 @@ def plot_positions(positions: np.ndarray, frame_time, other_positions=None, mark
     # TODO Make more sophisticated (keep centre zero)
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
-        x_max = x_max * max_val / (x_max - x_min)
-        x_min = x_min * max_val / (x_max - x_min)
+        x_max = x_max * max_val / ((x_max - x_min) + PLOT_EPSILON)
+        x_min = x_min * max_val / ((x_max - x_min) + PLOT_EPSILON)
     if y_max - y_min < max_val:
-        y_max = y_max * max_val / (y_max - y_min)
-        y_min = y_min * max_val / (y_max - y_min)
+        y_max = y_max * max_val / ((y_max - y_min) + PLOT_EPSILON)
+        y_min = y_min * max_val / ((y_max - y_min) + PLOT_EPSILON)
     if z_max - z_min < max_val:
-        z_max = z_max * max_val / (z_max - z_min)
-        z_min = z_min * max_val / (z_max - z_min)
+        z_max = z_max * max_val / ((z_max - z_min) + PLOT_EPSILON)
+        z_min = z_min * max_val / ((z_max - z_min) + PLOT_EPSILON)
 
     # Expand boundaries a bit to prevent clipping with edges
     dilation = 1.1
@@ -365,17 +380,24 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
     y_max = np.max(global_posis[..., 1])
     z_min = np.min(global_posis[..., 2])
     z_max = np.max(global_posis[..., 2])
+    for jt in global_end_posis:
+        x_min = min(x_min, np.min(global_end_posis[jt][..., 0]))
+        x_max = max(x_max, np.max(global_end_posis[jt][..., 0]))
+        y_min = min(y_min, np.min(global_end_posis[jt][..., 1]))
+        y_max = max(y_max, np.max(global_end_posis[jt][..., 1]))
+        z_min = min(z_min, np.min(global_end_posis[jt][..., 2]))
+        z_max = max(z_max, np.max(global_end_posis[jt][..., 2]))
 
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
-        x_max = x_max * max_val / (x_max - x_min)
-        x_min = x_min * max_val / (x_max - x_min)
+        x_max = x_max * max_val / ((x_max - x_min) + PLOT_EPSILON)
+        x_min = x_min * max_val / ((x_max - x_min) + PLOT_EPSILON)
     if y_max - y_min < max_val:
-        y_max = y_max * max_val / (y_max - y_min)
-        y_min = y_min * max_val / (y_max - y_min)
+        y_max = y_max * max_val / ((y_max - y_min) + PLOT_EPSILON)
+        y_min = y_min * max_val / ((y_max - y_min) + PLOT_EPSILON)
     if x_max - x_min < max_val:
-        z_max = z_max * max_val / (z_max - z_min)
-        z_min = z_min * max_val / (z_max - z_min)
+        z_max = z_max * max_val / ((z_max - z_min) + PLOT_EPSILON)
+        z_min = z_min * max_val / ((z_max - z_min) + PLOT_EPSILON)
 
     # Expand boundaries a bit to prevent clipping with edges
     dilation = 2.0
