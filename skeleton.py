@@ -26,8 +26,6 @@ class Skeleton:
         return Skeleton(self.jt_names.copy(), self.jt_hierarchy.copy(), self.jt_offsets.copy(), end_offsets)
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
-        mir_map = self.generate_mir_map()
-
         mul_x = -1 if mir_x else 1
         mul_y = -1 if mir_y else 1
         mul_z = -1 if mir_z else 1
@@ -47,6 +45,7 @@ class Skeleton:
 
         """ If chirality flipped then remap data via mir_map """
         if mul_x * mul_y * mul_z == -1:
+            mir_map = self.generate_mir_map()
 
             """ Flip jt_offsets """
             jt_offsets_temp = self.jt_offsets.copy()
