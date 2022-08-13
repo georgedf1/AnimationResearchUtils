@@ -87,17 +87,48 @@ class AnimationClip:
                                        self.skeleton.copy(), step * self.frame_time, positions, self.name))
         return anims
 
-    def mirror(self, mir_map):
-        rotation.reorder_quat_axes_inplace(self.rotations, 0, 1, 2, mir_x=True)
-        rots_temp = self.rotations.copy()
+    def mirror_inplace(self, mir_data):
+        """
+        Make sure you know what you're doing with this function.
 
+        This doesn't literally mirror the animation and skeleton but is for mirroring animations on symmetric skeletons.
+        You are expected to produce a mir_map for this reason (for instance by skeleton.generate_mir_map).
+
+        The mir_axis should be the mirroring axis for the skeleton's T-pose for correct left to right mirroring.
+        """
+        mir_map = mir_data.mir_map
+        mir_axis = mir_data.mir_axis
+
+        reorder_kwargs = {}
+        if mir_axis == 0:
+            reorder_kwargs['mir_x'] = True
+        elif mir_axis == 1:
+            reorder_kwargs['mir_y'] = True
+        elif mir_axis == 2:
+            reorder_kwargs['mir_z'] = True
+        else:
+            raise Exception('skel_fwd_axis must be 0, 1, or 2 but was {}'.format(mir_axis))
+
+        # Mirror joint rotation values
+        rotation.reorder_quat_axes_inplace(self.rotations, 0, 1, 2, **reorder_kwargs)
+
+        # Map values to mirrored joints
+        rots_temp = self.rotations.copy()
         for jt in range(self.num_jts):
             mir_jt = mir_map[jt]
-            self.rotations[:, jt] = rots_temp[:, mir_jt]
+            self.rotations[:, mir_jt] = rots_temp[:, jt]
 
-        self.root_positions[:, 0] = -self.root_positions[:, 0]
+        # Mirror root positions
+        self.root_positions[:, mir_axis] = -self.root_positions[:, mir_axis]
+
+        # Mirror dynamic positional offsets data
+        mir_positions = {}
         for jt in self.positions:
-            self.positions[jt] = -self.positions[jt]
+            mir_jt = mir_map[jt]
+            mir_pos = self.positions[jt].copy()
+            mir_pos[:, mir_axis] = -mir_pos[:, mir_axis]
+            mir_positions[mir_jt] = mir_pos
+        self.positions = mir_positions
 
     def append(self, anim):
         assert self.skeleton == anim.skeleton
@@ -350,18 +381,22 @@ class AnimationClip:
 
 if __name__ == '__main__':
 
-    filepath = "C:/Research/Data/CAMERA_bvh_loco/Bella/Bella001_walk.bvh"
-    filepath = "D:/Research/Data/CMU/unzipped/69/69_10.bvh"
-    filepath = "D:\Research\Data\LAFAN1\walk4_subject1.bvh"
+    # filepath = "C:/Research/Data/CAMERA_bvh_loco/Bella/Bella001_walk.bvh"
+    filepath = "D:/Research/Data/CMU/unzipped/69/69_08.bvh"
+    # filepath = "D:\Research\Data\LAFAN1\walk4_subject1.bvh"
 
     import bvh
-
-    anim = bvh.load_bvh(filepath, downscale=1)
-
-    new_anim = anim
-    new_anim = anim.extract_root_motion()
-    new_anim.reorder_axes_inplace(2, 0, 1)
     import plot
-    plot.plot_animation(new_anim)
 
-    #bvh.save_bvh('bvh_with_rm.bvh', new_anim)
+    anim = bvh.load_bvh(filepath)
+    anim.reorder_axes_inplace(2, 0, 1)
+    anim_mir = anim.copy()
+
+    mir_data = anim_mir.skeleton.generate_mir_data()
+    anim_mir.mirror_inplace(mir_data)
+
+    # anim = anim.extract_root_motion()
+    # anim.reorder_axes_inplace(2, 0, 1)
+    plot.plot_animation(anim, anim_mir)
+
+    #bvh.save_bvh('bvh_with_rm.bvh', anim)

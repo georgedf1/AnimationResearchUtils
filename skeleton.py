@@ -1,6 +1,12 @@
 import numpy as np
 
 
+class MirrorData:
+    def __init__(self, mir_map, mir_axis):
+        self.mir_map = mir_map
+        self.mir_axis = mir_axis
+
+
 class Skeleton:
     """ Note that this skeleton stores constant joint offsets so is not valid for when local joint positions move"""
     def __init__(self, jt_names, jt_hierarchy, jt_offsets, end_offsets):
@@ -45,7 +51,7 @@ class Skeleton:
 
         """ If chirality flipped then remap data via mir_map """
         if mul_x * mul_y * mul_z == -1:
-            mir_map = self.generate_mir_map()
+            mir_map = self.generate_mir_data()
 
             """ Flip jt_offsets """
             jt_offsets_temp = self.jt_offsets.copy()
@@ -61,7 +67,7 @@ class Skeleton:
                 par_mir_jt = mir_map[par_jt]
                 self.end_offsets[par_jt] = end_offsets_temp[par_mir_jt]
 
-    def generate_mir_map(self):
+    def generate_mir_data(self):
         """
         Make sure you know what you're doing using this.
         Expects mirror symmetry in skeletal hierarchy.
@@ -108,4 +114,11 @@ class Skeleton:
 
             assert mir_found, "Skeleton has unequal number of 'Left' and 'Right' joints"
 
-        return np.array(mir_map)
+        # Infer mirror axis
+        left_right_offset_diffs = []
+        for jt, mir_jt in enumerate(mir_map):
+            if jt != mir_jt:
+                left_right_offset_diffs.append(self.jt_offsets[jt] - self.jt_offsets[mir_jt])
+        mir_axis = np.argmax(np.std(left_right_offset_diffs, axis=0))
+
+        return MirrorData(np.array(mir_map, dtype=int), mir_axis)
