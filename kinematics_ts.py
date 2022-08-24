@@ -1,5 +1,62 @@
 import torch
+import torch.nn as nn
 import rotation_ts
+
+
+# class ForwardKinematics(nn.Module):
+#     def __init__(self, skeleton):
+#         super(ForwardKinematics, self).__init__()
+#
+#         self.hierarchy = skeleton.jt_hierarchy.copy()
+#
+#         self.offsets = nn.Parameter(torch.from_numpy(skeleton.jt_offsets.copy()), requires_grad=False)
+#
+#         end_offsets = {}
+#         for jt in skeleton.end_offsets:
+#             end_offsets[str(jt)] = nn.Parameter(torch.from_numpy(skeleton.end_offsets[jt].copy()), requires_grad=False)
+#         self.end_offsets = nn.ParameterDict(end_offsets)
+#
+#     def forward(self, root_positions, rotations, positions=None, local_to_root=False):
+#
+#         if positions is None:
+#             positions = {}
+#
+#         shape = rotations.shape
+#         num_jts = shape[-2]
+#
+#         # We have to use lists of tensors for jts here or else pytorch anomaly detection will get annoyed at us :)
+#         if local_to_root:
+#             global_positions = [torch.zeros_like(root_positions[..., None, :])]
+#             global_rotations = [torch.zeros_like(rotations[..., 0:1, :])]
+#             global_rotations[0][..., 0:1, 0] = 1.0
+#         else:
+#             global_positions = [root_positions[..., None, :]]
+#             global_rotations = [rotations[..., 0:1, :]]
+#
+#         global_end_positions = {}
+#
+#         hierarchy = self.hierarchy
+#         offsets = torch.broadcast_to(self.offsets, shape[:-2] + (num_jts, 3))
+#         end_offsets = self.end_offsets
+#
+#         for jt in range(1, num_jts):
+#             par_jt = hierarchy[jt]
+#             posis = positions[jt][..., None, :] if jt in positions else offsets[..., jt:jt + 1, :]
+#
+#             global_rotations.append(rotation_ts.quat_mul_quat(
+#                 global_rotations[par_jt], rotations[..., jt:jt + 1, :]))
+#
+#             global_positions.append(global_positions[par_jt] + rotation_ts.quat_mul_vec(
+#                 global_rotations[par_jt], posis))
+#
+#             if jt in end_offsets:
+#                 global_rot = global_rotations[jt][..., 0, :]
+#                 global_pos = global_positions[jt][..., 0, :]
+#                 end_offset = end_offsets[str(jt)]
+#                 end_posis = torch.broadcast_to(end_offset, global_rot.shape[:-1] + (3,))
+#                 global_end_positions[jt] = global_pos + rotation_ts.quat_mul_vec(global_rot, end_posis)
+#
+#         return torch.cat(global_positions, dim=-2), torch.cat(global_rotations, dim=-2), global_end_positions
 
 
 def forward_kinematics(root_positions, rotations, skeleton, positions=None, local_to_root=False):
@@ -38,7 +95,6 @@ def forward_kinematics(root_positions, rotations, skeleton, positions=None, loca
     end_offsets_ts = {}
     for jt in skeleton.end_offsets:
         end_offsets_ts[jt] = torch.from_numpy(skeleton.end_offsets[jt]).type(dtype).to(device)
-    end_offsets = skeleton.end_offsets
 
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
@@ -50,10 +106,10 @@ def forward_kinematics(root_positions, rotations, skeleton, positions=None, loca
         global_positions.append(global_positions[par_jt] + rotation_ts.quat_mul_vec(
             global_rotations[par_jt], posis))
 
-        if jt in end_offsets:
+        if jt in end_offsets_ts:
             global_rot = global_rotations[jt][..., 0, :]
             global_pos = global_positions[jt][..., 0, :]
-            end_offset = torch.from_numpy(end_offsets[jt]).type(dtype).to(device)
+            end_offset = end_offsets_ts[jt]
             end_posis = torch.broadcast_to(end_offset, global_rot.shape[:-1] + (3,))
             global_end_positions[jt] = global_pos + rotation_ts.quat_mul_vec(global_rot, end_posis)
 
