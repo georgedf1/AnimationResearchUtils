@@ -142,7 +142,7 @@ class AnimationClip:
         return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions, self.name).copy()
 
     def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
-        # Note: mir_o mirrors the new o axis not the unused o axis.
+        # Note: mir_o mirrors the new o axis not the old o axis.
 
         mul_x = -1 if mir_x else 1
         mul_y = -1 if mir_y else 1
@@ -212,8 +212,8 @@ class AnimationClip:
 
         You should be aware:
          - As such this method extracts this 'root motion', putting it on a new root joint,
-           moves the unused root down the hierarchy, leaving any remaining motion on that joint via the new positions dict.
-         - The corresponding unused root's joint offset is zero as a static offset doesn't make sense for a moving joint.
+           moves the old root down the hierarchy, leaving any remaining motion on that joint via the new positions dict.
+         - The corresponding old root's joint offset is zero as a static offset doesn't make sense for a moving joint.
          - The up vector is assumed to be the y-axis and forward is the z-axis.
         """
 
@@ -270,7 +270,7 @@ class AnimationClip:
              self.rotations[:, 1:].copy()],
             axis=1)
 
-        # Save unused root positions to positions
+        # Save old root positions to positions
         new_positions[1] = old_root_posis
 
         return AnimationClip(new_root_posis, new_rotations, new_skeleton, frame_time, new_positions, self.name)
