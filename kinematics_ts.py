@@ -69,6 +69,8 @@ def forward_kinematics(root_positions, rotations, skeleton, positions=None, loca
     :return: (torch.Tensor) global_positions (local to the root position) of shape (..., J, 3),
         (torch.Tensor) global_rotations of shape (..., J, 4)
         (dict) global_end_sites - maps a jt to its child end site global position if it has one
+
+    Note that by design, although this is parallel, it assumes the same skeleton is used for each batch
     """
     if positions is None:
         positions = {}

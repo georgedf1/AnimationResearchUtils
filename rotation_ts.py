@@ -48,9 +48,9 @@ def vec_cross_vec(a, b):
 
 
 def quat_to_two_axis(qs, up_idx=1, fwd_idx=2):
-    ups = torch.zeros(qs.shape[:-1] + (3,))
+    ups = torch.zeros(qs.shape[:-1] + (3,), dtype=qs.dtype, device=qs.device)
     ups[..., up_idx] = 1.0
-    fwds = torch.zeros(qs.shape[:-1] + (3,))
+    fwds = torch.zeros(qs.shape[:-1] + (3,), dtype=qs.dtype, device=qs.device)
     fwds[..., fwd_idx] = 1.0
 
     ups_tf = quat_mul_vec(qs, ups)
