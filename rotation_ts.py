@@ -47,6 +47,18 @@ def vec_cross_vec(a, b):
         a[..., 0:1]*b[..., 1:2] - a[..., 1:2]*b[..., 0:1]], dim=-1)
 
 
+def quat_to_two_axis(qs, up_idx=1, fwd_idx=2):
+    ups = torch.zeros(qs.shape[:-1] + (3,))
+    ups[..., up_idx] = 1.0
+    fwds = torch.zeros(qs.shape[:-1] + (3,))
+    fwds[..., fwd_idx] = 1.0
+
+    ups_tf = quat_mul_vec(qs, ups)
+    fwds_tf = quat_mul_vec(qs, fwds)
+
+    return ups_tf, fwds_tf
+
+
 def two_axis_to_quat(ups_tf, fwds_tf, up_idx=1, fwd_idx=2):
     # Expects ups_tf and fwds_tf both of shape (BATCH, WIN_LEN, NUM_JTS, 3)
     # Outputs quaternion of shape (BATCH, WIN_LEN, NUM_JTS, 4)
