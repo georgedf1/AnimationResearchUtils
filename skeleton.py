@@ -122,3 +122,15 @@ class Skeleton:
         mir_axis = np.argmax(np.std(left_right_offset_diffs, axis=0))
 
         return MirrorData(np.array(mir_map, dtype=int), mir_axis)
+
+
+class TensorSkeleton:
+    def __init__(self, hierarchy, offsets, end_offsets):
+        self.hierarchy = hierarchy
+        self.offsets = offsets
+        self.end_offsets = end_offsets
+
+    def cast_to(self, device):
+        # No point casting hierarchy as it's only used for indexing
+        self.offsets = self.offsets.to(device)
+        self.end_offsets = self.end_offsets.to(device)
