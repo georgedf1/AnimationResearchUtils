@@ -134,3 +134,40 @@ class TensorSkeleton:
         # No point casting hierarchy as it's only used for indexing
         self.offsets = self.offsets.to(device)
         self.end_offsets = self.end_offsets.to(device)
+
+
+if __name__ == "__main__":
+    import bvh
+    import plot
+
+    anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
+
+    print(anim.skeleton.jt_names)
+    print(anim.skeleton.jt_hierarchy)
+
+    pool_map = []
+    unpool_map = []
+
+    # Compute degrees
+    num_jts = anim.num_jts
+    hierarchy = anim.skeleton.jt_hierarchy
+    degree = num_jts * [1]
+    degree[0] = 0
+    for jt in range(1, num_jts):
+        par_jt = hierarchy[jt]
+        degree[par_jt] += 1
+
+    to_pool = num_jts * [True]
+    to_pool[0] = False
+    for jt in range(1, num_jts):
+        par_jt = hierarchy[jt]
+        if degree[jt] != 2 or to_pool[par_jt]:
+            to_pool[jt] = False
+    # for jt in range(num_jts):
+    #     print(jt, degree[jt], to_pool[jt])
+
+    # For conv we just need to correctly wire up input jts per pooled jt by distance.
+    #   Can implement as one masked conv1d or multiple per pooled jt.
+    #   I will do the latter for memory efficiency.
+    # To pool we need to know which jts to average over per pooled jt
+    # To unpool we need to know what each jt copies from
