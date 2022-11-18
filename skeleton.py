@@ -142,32 +142,91 @@ if __name__ == "__main__":
 
     anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
 
-    print(anim.skeleton.jt_names)
-    print(anim.skeleton.jt_hierarchy)
+    verbose = True
 
-    pool_map = []
-    unpool_map = []
+    if verbose:
+        print(anim.skeleton.jt_names)
+        print(anim.skeleton.jt_hierarchy)
 
-    # Compute degrees
     num_jts = anim.num_jts
     hierarchy = anim.skeleton.jt_hierarchy
-    degree = num_jts * [1]
+
+    # Determine children of each joint for convenience
+    children = [[] for _ in range(num_jts)]
+    for jt in range(1, num_jts):
+        par_jt = hierarchy[jt]
+        children[par_jt].append(jt)
+    if verbose:
+        print('children')
+        print(children)
+
+    # Determine end effector joints
+    end_effs = []
+    for jt in range(1, num_jts):
+        if len(children[jt]) == 0:
+            end_effs.append(jt)
+    if verbose:
+        print('end effectors')
+        print(end_effs)
+
+    # Compute degree of each joint
+    degree = [1 for _ in range(num_jts)]
     degree[0] = 0
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
         degree[par_jt] += 1
 
-    to_pool = num_jts * [True]
+
+
+    # Figure out which to pool based on degree
+    to_pool = [True for _ in range(num_jts)]
     to_pool[0] = False
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
         if degree[jt] != 2 or to_pool[par_jt]:
             to_pool[jt] = False
-    # for jt in range(num_jts):
-    #     print(jt, degree[jt], to_pool[jt])
+    if verbose:
+        print('degree')
+        print(degree)
+        print('to_pool')
+        print(to_pool)
 
     # For conv we just need to correctly wire up input jts per pooled jt by distance.
     #   Can implement as one masked conv1d or multiple per pooled jt.
     #   I will do the latter for memory efficiency.
     # To pool we need to know which jts to average over per pooled jt
     # To unpool we need to know what each jt copies from
+
+    # For the convolution map we need to walk the graph for each jt up to distance d=1
+    # This is consists of the joint's children and its parent.
+    #   This differs from Aberman as they also include the parent's children.
+    conv_map = []
+    for jt in range(num_jts):
+        nbrs = children[jt].copy()
+        if jt == 0:  # Root joint should consider end effectors
+            nbrs.extend(end_effs.copy())
+        else:
+            par_jt = hierarchy[jt]
+            nbrs.append(par_jt)
+        conv_map.append(nbrs)
+    if verbose:
+        print('conv_map')
+        print(conv_map)
+
+    # Figure out the joint index maps for pooling and unpooling
+    pool_map = []
+    unpool_map = [[]]
+    corr = 0
+    for jt in range(num_jts):
+        pool_map.append(jt + corr)
+        unpool_map[-1].append(jt)
+        if to_pool[jt]:
+            corr -= 1
+        elif jt != num_jts - 1:
+            unpool_map.append([])
+    if verbose:
+        print('pool_map')
+        print(pool_map)
+        print('unpool_map')
+        print(unpool_map)
+
