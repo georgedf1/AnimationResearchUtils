@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 
 
@@ -136,97 +138,184 @@ class TensorSkeleton:
         self.end_offsets = self.end_offsets.to(device)
 
 
+class SkeletalConvPoolScheme:
+    def __init__(self, original_hierarchy, use_parents_children_in_skel_conv, verbose=False):
+
+        hierarchies = [original_hierarchy.copy()]
+
+        # nth conv map is for the nth hiearchy
+        conv_maps = [self._generate_conv_map(
+            original_hierarchy.copy(), use_parents_children_in_skel_conv, verbose)]
+
+        # nth pool and unpool map is for operation from nth to (n+1)th hierarchy
+        pool_maps = []
+        unpool_maps = []
+
+
+        hierarchy = original_hierarchy.copy()
+        while 1:
+            new_hierarchy, pool_map, unpool_map = self._generate_pooling_step(hierarchy, verbose)
+
+            if len(hierarchy) == len(new_hierarchy) and hierarchy == new_hierarchy:
+                break
+
+            conv_map = self._generate_conv_map(new_hierarchy, use_parents_children_in_skel_conv, verbose)
+
+            conv_maps.append(conv_map)
+            hierarchies.append(new_hierarchy)
+            pool_maps.append(pool_map)
+            unpool_maps.append(unpool_map)
+
+            hierarchy = new_hierarchy
+
+        self.hierarchies = hierarchies
+        self.conv_maps = conv_maps
+        self.pool_maps = pool_maps
+        self.unpool_maps = unpool_maps
+
+        self.num_ops = len(self.pool_maps)
+
+    @staticmethod
+    def _generate_pooling_step(hierarchy, verbose=False):
+
+        num_jts = len(hierarchy)
+
+        # Compute degree of each joint
+        degree = [1 for _ in range(num_jts)]
+        degree[0] = 0
+        for jt in range(1, num_jts):
+            par_jt = hierarchy[jt]
+            degree[par_jt] += 1
+
+        # Figure out which to pool based on degree
+        to_pool = [True for _ in range(num_jts)]
+        to_pool[0] = False
+        for jt in range(1, num_jts):
+            par_jt = hierarchy[jt]
+            if degree[jt] != 2 or to_pool[par_jt]:
+                to_pool[jt] = False
+        if verbose:
+            print('degree')
+            print(degree)
+            print('to_pool')
+            print(to_pool)
+
+        # Figure out the joint index maps for pooling and unpooling
+        pool_map = []
+        unpool_map = [[]]
+        corr = 0
+        for jt in range(num_jts):
+            pool_map.append(jt + corr)
+            unpool_map[-1].append(jt)
+            if to_pool[jt]:
+                corr -= 1
+            elif jt != num_jts - 1:
+                unpool_map.append([])
+        if verbose:
+            print('pool_map')
+            print(pool_map)
+            print('unpool_map')
+            print(unpool_map)
+
+        new_hierarchy = [-1]
+        for jt in range(1, len(unpool_map)):
+            par_jt = hierarchy[unpool_map[jt][0]]
+            new_par_jt = pool_map[par_jt]
+            new_hierarchy.append(new_par_jt)
+        if verbose:
+            print('new_hierarchy')
+            print(new_hierarchy)
+
+        return new_hierarchy, pool_map, unpool_map
+
+    @staticmethod
+    def _generate_conv_map(hierarchy, use_parents_children_in_skel_conv, verbose=False):
+
+        # For conv we just need to correctly wire up input jts per pooled jt by distance.
+        #   Can implement as one masked conv1d or multiple per pooled jt.
+        #   I will do the latter for memory efficiency.
+        # To pool we need to know which jts to average over per pooled jt
+        # To unpool we need to know what each jt copies from
+
+        num_jts = len(hierarchy)
+
+        if verbose:
+            print('generating conv map for hierarchy:')
+            print(hierarchy)
+
+        # Determine children of each joint for convenience
+        children = [[] for _ in range(num_jts)]
+        for jt in range(1, num_jts):
+            par_jt = hierarchy[jt]
+            children[par_jt].append(jt)
+        if verbose:
+            print('children')
+            print(children)
+
+        # Determine end effector joints
+        end_effs = []
+        for jt in range(1, num_jts):
+            if len(children[jt]) == 0:
+                end_effs.append(jt)
+        if verbose:
+            print('end effectors')
+            print(end_effs)
+
+        # For the convolution map we need to walk the graph for each jt up to distance d=1
+        # By default this consists of the joint's children and its parent.
+        #   This differs from Aberman as they also include the parent's children,
+        #   which we allow via a hyperparameter flag (parent_children_in_skel_conv)
+        conv_map = []
+        for jt in range(num_jts):
+            nbrs = [jt]
+
+            nbrs.extend(children[jt].copy())
+            if jt == 0:  # Root joint should consider end effectors
+                nbrs.extend(end_effs.copy())
+            else:
+                par_jt = hierarchy[jt]
+                nbrs.append(par_jt)
+
+                if use_parents_children_in_skel_conv:
+                    par_children = children[par_jt].copy()
+                    par_children.remove(jt)
+                    nbrs.extend(par_children)
+
+            # Ensure no duplicates
+            nbrs = list(set(nbrs))
+
+            conv_map.append(nbrs)
+        if verbose:
+            print('conv_map')
+            print(conv_map)
+
+        return conv_map
+
+
 if __name__ == "__main__":
     import bvh
     import plot
 
     anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
 
-    verbose = True
-
-    if verbose:
-        print(anim.skeleton.jt_names)
-        print(anim.skeleton.jt_hierarchy)
-
-    num_jts = anim.num_jts
     hierarchy = anim.skeleton.jt_hierarchy
+    scheme = SkeletalConvPoolScheme(hierarchy, False)
+    scheme_p = SkeletalConvPoolScheme(hierarchy, True)
 
-    # Determine children of each joint for convenience
-    children = [[] for _ in range(num_jts)]
-    for jt in range(1, num_jts):
-        par_jt = hierarchy[jt]
-        children[par_jt].append(jt)
-    if verbose:
-        print('children')
-        print(children)
+    print('Start with hierarchy')
+    print(scheme_p.hierarchies[0])
+    print('with conv_map')
+    print(scheme_p.conv_maps[0])
 
-    # Determine end effector joints
-    end_effs = []
-    for jt in range(1, num_jts):
-        if len(children[jt]) == 0:
-            end_effs.append(jt)
-    if verbose:
-        print('end effectors')
-        print(end_effs)
-
-    # Compute degree of each joint
-    degree = [1 for _ in range(num_jts)]
-    degree[0] = 0
-    for jt in range(1, num_jts):
-        par_jt = hierarchy[jt]
-        degree[par_jt] += 1
-
-
-
-    # Figure out which to pool based on degree
-    to_pool = [True for _ in range(num_jts)]
-    to_pool[0] = False
-    for jt in range(1, num_jts):
-        par_jt = hierarchy[jt]
-        if degree[jt] != 2 or to_pool[par_jt]:
-            to_pool[jt] = False
-    if verbose:
-        print('degree')
-        print(degree)
-        print('to_pool')
-        print(to_pool)
-
-    # For conv we just need to correctly wire up input jts per pooled jt by distance.
-    #   Can implement as one masked conv1d or multiple per pooled jt.
-    #   I will do the latter for memory efficiency.
-    # To pool we need to know which jts to average over per pooled jt
-    # To unpool we need to know what each jt copies from
-
-    # For the convolution map we need to walk the graph for each jt up to distance d=1
-    # This is consists of the joint's children and its parent.
-    #   This differs from Aberman as they also include the parent's children.
-    conv_map = []
-    for jt in range(num_jts):
-        nbrs = children[jt].copy()
-        if jt == 0:  # Root joint should consider end effectors
-            nbrs.extend(end_effs.copy())
-        else:
-            par_jt = hierarchy[jt]
-            nbrs.append(par_jt)
-        conv_map.append(nbrs)
-    if verbose:
-        print('conv_map')
-        print(conv_map)
-
-    # Figure out the joint index maps for pooling and unpooling
-    pool_map = []
-    unpool_map = [[]]
-    corr = 0
-    for jt in range(num_jts):
-        pool_map.append(jt + corr)
-        unpool_map[-1].append(jt)
-        if to_pool[jt]:
-            corr -= 1
-        elif jt != num_jts - 1:
-            unpool_map.append([])
-    if verbose:
-        print('pool_map')
-        print(pool_map)
-        print('unpool_map')
-        print(unpool_map)
-
+    for i in range(scheme_p.num_ops):
+        print('\n(op', i, ')')
+        print('Now we transform hierarchy')
+        print(scheme_p.hierarchies[i])
+        print('via pool_map')
+        print(scheme_p.pool_maps[i])
+        print('to hierarchy')
+        print(scheme_p.hierarchies[i + 1])
+        print('which has conv_map')
+        print(scheme_p.conv_maps[i + 1])
+        print('and can be inverted with unpool_map')
+        print(scheme_p.unpool_maps[i])
