@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 
 
@@ -126,33 +124,20 @@ class Skeleton:
         return MirrorData(np.array(mir_map, dtype=int), mir_axis)
 
 
-class TensorSkeleton:
-    def __init__(self, hierarchy, offsets, end_offsets):
-        self.hierarchy = hierarchy
-        self.offsets = offsets
-        self.end_offsets = end_offsets
-
-    def cast_to(self, device):
-        # No point casting hierarchy as it's only used for indexing
-        self.offsets = self.offsets.to(device)
-        self.end_offsets = self.end_offsets.to(device)
-
-
 class SkeletalConvPoolScheme:
-    def __init__(self, original_hierarchy, use_parents_children_in_skel_conv, verbose=False):
+    def __init__(self, skeleton, use_parents_children_in_skel_conv, verbose=False):
 
-        hierarchies = [original_hierarchy.copy()]
+        hierarchies = [skeleton.jt_hierarchy.copy()]
 
-        # nth conv map is for the nth hiearchy
+        # nth conv map is for the nth hierarchy
         conv_maps = [self._generate_conv_map(
-            original_hierarchy.copy(), use_parents_children_in_skel_conv, verbose)]
+            skeleton.jt_hierarchy.copy(), use_parents_children_in_skel_conv, verbose)]
 
         # nth pool and unpool map is for operation from nth to (n+1)th hierarchy
         pool_maps = []
         unpool_maps = []
 
-
-        hierarchy = original_hierarchy.copy()
+        hierarchy = skeleton.jt_hierarchy.copy()
         while 1:
             new_hierarchy, pool_map, unpool_map = self._generate_pooling_step(hierarchy, verbose)
 
@@ -201,26 +186,26 @@ class SkeletalConvPoolScheme:
             print(to_pool)
 
         # Figure out the joint index maps for pooling and unpooling
-        pool_map = []
-        unpool_map = [[]]
+        unpool_map = []
+        pool_map = [[]]
         corr = 0
         for jt in range(num_jts):
-            pool_map.append(jt + corr)
-            unpool_map[-1].append(jt)
+            unpool_map.append(jt + corr)
+            pool_map[-1].append(jt)
             if to_pool[jt]:
                 corr -= 1
             elif jt != num_jts - 1:
-                unpool_map.append([])
+                pool_map.append([])
         if verbose:
-            print('pool_map')
-            print(pool_map)
             print('unpool_map')
             print(unpool_map)
+            print('pool_map')
+            print(pool_map)
 
         new_hierarchy = [-1]
-        for jt in range(1, len(unpool_map)):
-            par_jt = hierarchy[unpool_map[jt][0]]
-            new_par_jt = pool_map[par_jt]
+        for jt in range(1, len(pool_map)):
+            par_jt = hierarchy[pool_map[jt][0]]
+            new_par_jt = unpool_map[par_jt]
             new_hierarchy.append(new_par_jt)
         if verbose:
             print('new_hierarchy')
@@ -294,7 +279,6 @@ class SkeletalConvPoolScheme:
 
 if __name__ == "__main__":
     import bvh
-    import plot
 
     anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
 

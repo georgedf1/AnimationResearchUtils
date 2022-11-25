@@ -1,4 +1,6 @@
 import torch
+
+import AnimationResearchUtils.skeleton_ts
 import skeleton
 import rotation_ts
 
@@ -58,7 +60,7 @@ import rotation_ts
 #         return torch.cat(global_positions, dim=-2), torch.cat(global_rotations, dim=-2), global_end_positions
 
 
-def forward_kinematics(root_positions, rotations, skeleton: skeleton.TensorSkeleton, positions=None, local_to_root=False):
+def forward_kinematics(root_positions, rotations, skeleton: AnimationResearchUtils.skeleton_ts.TensorSkeleton, positions=None, local_to_root=False):
     """
     :param root_positions: (torch.Tensor) root positions shape (..., 3)
     :param rotations: (torch.Tensor) local joint rotations shape (..., J, 4)
