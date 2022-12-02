@@ -107,7 +107,7 @@ if __name__ == "__main__":
     anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
 
     skeleton = anim.skeleton
-    scheme = SkeletalConvPoolScheme(skeleton, True)
+    scheme = SkeletalConvPoolScheme(skeleton.jt_hierarchy, True)
 
     hierarchy = scheme.hierarchies[0]
     hierarchy_p = scheme.hierarchies[1]
@@ -124,6 +124,7 @@ if __name__ == "__main__":
     print('conv')
     print(x.shape)
     x_c = conv(x)
+    torch.norm(x_c).backward()
     print(x_c.shape)
 
     print('pool')
@@ -136,13 +137,17 @@ if __name__ == "__main__":
     x_re = unpool(x_p)
     print(x_re.shape)
 
-    # offsets_p = []
-    # for jt_p in range(len(pool_map)):
-    #     jts = pool_map[jt_p]
-    #     offset_p = 0.0
-    #     for jt in jts:
-    #         offset_p += skeleton.jt_offsets[jt]
-    #     offsets_p.append(offset_p)
-    # skel_p = Skeleton([], hierarchy_p, offsets_p, {})
-    # plot.plot_skeleton(skeleton)
-    # plot.plot_skeleton(skel_p)
+    offsets = skeleton.jt_offsets.copy()
+    plot.plot_skeleton(Skeleton([], hierarchy, offsets, {}))
+    for i, pool_map in enumerate(scheme.pool_maps):
+        offsets_p = []
+        hierarchy_p = scheme.hierarchies[i + 1]
+        for jt_p in range(len(pool_map)):
+            jts = pool_map[jt_p]
+            offset_p = 0.0
+            for jt in jts:
+                offset_p += offsets[jt]
+            offsets_p.append(offset_p)
+        skel_p = Skeleton([], hierarchy_p, offsets_p, {})
+        plot.plot_skeleton(skel_p)
+        offsets = offsets_p.copy()

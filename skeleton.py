@@ -125,19 +125,19 @@ class Skeleton:
 
 
 class SkeletalConvPoolScheme:
-    def __init__(self, skeleton, use_parents_children_in_skel_conv, verbose=False):
+    def __init__(self, og_hierarchy, use_parents_children_in_skel_conv, verbose=False):
 
-        hierarchies = [skeleton.jt_hierarchy.copy()]
+        hierarchies = [og_hierarchy.copy()]
 
         # nth conv map is for the nth hierarchy
         conv_maps = [self._generate_conv_map(
-            skeleton.jt_hierarchy.copy(), use_parents_children_in_skel_conv, verbose)]
+            og_hierarchy.copy(), use_parents_children_in_skel_conv, verbose)]
 
         # nth pool and unpool map is for operation from nth to (n+1)th hierarchy
         pool_maps = []
         unpool_maps = []
 
-        hierarchy = skeleton.jt_hierarchy.copy()
+        hierarchy = og_hierarchy.copy()
         while 1:
             new_hierarchy, pool_map, unpool_map = self._generate_pooling_step(hierarchy, verbose)
 
