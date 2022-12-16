@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from skeleton import Skeleton, SkeletalConvPoolScheme
 
 
@@ -62,12 +61,11 @@ class SkeletalPool(nn.Module):
         self.pool_map = pool_map.copy()
 
     def forward(self, x):
-        # Expects x of shape [batch, joints, channels, frames]
-        assert len(x.shape) == 4
-        batch_size, num_jts, num_chs, num_frames = x.shape
+        # Expects x of shape [batch, joints, ...]
+        batch_size, num_jts = x.shape[:2]
         assert self.num_jts == num_jts
         x_p = torch.empty(
-            (batch_size, self.num_jts_p, num_chs, num_frames),
+            (batch_size, self.num_jts_p,) + x.shape[2:],
             device=x.device, dtype=x.dtype)
 
         for jt_p in range(self.num_jts_p):
@@ -91,9 +89,8 @@ class SkeletalUnpool(nn.Module):
         self.unpool_map = unpool_map
 
     def forward(self, x_p):
-        # Expects x of shape [batch, joints, channels, frames]
-        assert len(x_p.shape) == 4
-        batch_size, num_jts_p, num_chs, num_frames = x_p.shape
+        # Expects x of shape [batch, joints, ...]
+        batch_size, num_jts_p = x_p.shape[:2]
         assert self.num_jts_p == num_jts_p
         x = x_p[:, self.unpool_map].clone()
 
@@ -117,15 +114,15 @@ if __name__ == "__main__":
 
     pool = SkeletalPool(pool_map)
     unpool = SkeletalUnpool(unpool_map)
-    conv = SkeletalConv(4, 5, conv_map, 3)
+    # conv = SkeletalConv(4, 5, conv_map, 3)
 
     x = torch.empty((64, len(hierarchy), 4, 60))
 
-    print('conv')
-    print(x.shape)
-    x_c = conv(x)
-    torch.norm(x_c).backward()
-    print(x_c.shape)
+    # print('conv')
+    # print(x.shape)
+    # x_c = conv(x)
+    # torch.norm(x_c).backward()
+    # print(x_c.shape)
 
     print('pool')
     print(x.shape)

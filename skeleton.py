@@ -51,7 +51,8 @@ class Skeleton:
 
         """ If chirality flipped then remap data via mir_map """
         if mul_x * mul_y * mul_z == -1:
-            mir_map = self.generate_mir_data()
+            mir_data = self.generate_mir_data()
+            mir_map = mir_data.mir_map
 
             """ Flip jt_offsets """
             jt_offsets_temp = self.jt_offsets.copy()
@@ -154,11 +155,14 @@ class SkeletalConvPoolScheme:
             hierarchy = new_hierarchy
 
         self.hierarchies = hierarchies
+        self.primal_conv_map = conv_maps.pop(-1)  # Distinguish deepest conv map as we usually dont use it
         self.conv_maps = conv_maps
         self.pool_maps = pool_maps
         self.unpool_maps = unpool_maps
 
-        self.num_ops = len(self.pool_maps)
+        self.num_maps = len(self.pool_maps)
+        assert self.num_maps == len(self.conv_maps)
+        assert self.num_maps == len(self.unpool_maps)
 
     @staticmethod
     def _generate_pooling_step(hierarchy, verbose=False):
@@ -291,7 +295,7 @@ if __name__ == "__main__":
     print('with conv_map')
     print(scheme_p.conv_maps[0])
 
-    for i in range(scheme_p.num_ops):
+    for i in range(scheme_p.num_maps - 1):
         print('\n(op', i, ')')
         print('Now we transform hierarchy')
         print(scheme_p.hierarchies[i])
