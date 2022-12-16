@@ -16,41 +16,41 @@ class TensorSkeleton:
         self.end_offsets = self.end_offsets.to(device)
 
 
-class SkeletalConv(nn.Module):
-    def __init__(self, c_in, c_out, conv_map, kernel_size):
-        super(SkeletalConv, self).__init__()
-        self.c_in = c_in
-        self.c_out = c_out
-        self.num_jts = len(conv_map)
-        self.conv_map = conv_map
-
-        padding = (kernel_size - 1) // 2
-
-        convs = []
-        for jt in range(self.num_jts):
-            nbrhd = conv_map[jt]
-            conv = nn.Conv1d(c_in * len(nbrhd), c_out,
-                      kernel_size=kernel_size, padding=padding)
-            convs.append(conv)
-        self.convs = convs
-
-    def forward(self, x):
-        # Expects shape [B, J, C, F]
-        assert len(x.shape) == 4
-        assert x.shape[1] == self.num_jts
-
-        x_c = torch.empty((x.shape[0], self.num_jts, self.c_out, x.shape[-1]),
-                          device=x.device, dtype=x.dtype)
-
-        for jt in range(self.num_jts):
-            conv_jts = self.conv_map[jt]
-            num_conv_jts = len(conv_jts)
-            conv_c_in = self.c_in * num_conv_jts
-            conv = self.convs[jt]
-            x_flat = x[:, conv_jts].reshape(x.shape[0], conv_c_in, x.shape[-1])
-            x_c[:, jt] = conv(x_flat)
-
-        return x_c
+# class SkeletalConv(nn.Module):
+#     def __init__(self, c_in, c_out, conv_map, kernel_size):
+#         super(SkeletalConv, self).__init__()
+#         self.c_in = c_in
+#         self.c_out = c_out
+#         self.num_jts = len(conv_map)
+#         self.conv_map = conv_map
+#
+#         padding = (kernel_size - 1) // 2
+#
+#         convs = []
+#         for jt in range(self.num_jts):
+#             nbrhd = conv_map[jt]
+#             conv = nn.Conv1d(c_in * len(nbrhd), c_out,
+#                       kernel_size=kernel_size, padding=padding)
+#             convs.append(conv)
+#         self.convs = convs
+#
+#     def forward(self, x):
+#         # Expects shape [B, J, C, F]
+#         assert len(x.shape) == 4
+#         assert x.shape[1] == self.num_jts
+#
+#         x_c = torch.empty((x.shape[0], self.num_jts, self.c_out, x.shape[-1]),
+#                           device=x.device, dtype=x.dtype)
+#
+#         for jt in range(self.num_jts):
+#             conv_jts = self.conv_map[jt]
+#             num_conv_jts = len(conv_jts)
+#             conv_c_in = self.c_in * num_conv_jts
+#             conv = self.convs[jt]
+#             x_flat = x[:, conv_jts].reshape(x.shape[0], conv_c_in, x.shape[-1])
+#             x_c[:, jt] = conv(x_flat)
+#
+#         return x_c
 
 
 class SkeletalPool(nn.Module):
