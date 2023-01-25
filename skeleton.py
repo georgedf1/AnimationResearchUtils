@@ -178,7 +178,7 @@ class SkeletalConvPoolScheme:
 
         # Figure out which to pool based on degree
         to_pool = [True for _ in range(num_jts)]
-        to_pool[0] = False
+        to_pool[0] = False  # Never pool root joint!
         for jt in range(1, num_jts):
             par_jt = hierarchy[jt]
             if degree[jt] != 2 or to_pool[par_jt]:

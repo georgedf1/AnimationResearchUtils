@@ -6,4 +6,4 @@ Files ending with _ts are pytorch equivalents enabling backprop.
 ### Dependencies
 - numpy
 - (optional) plotly for use of plot.py
-- (optional) pytorch to use kinematics_ts.py and rotation_ts.py
+- (optional) pytorch to use functions in *_ts.py files
