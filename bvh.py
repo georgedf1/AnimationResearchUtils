@@ -54,7 +54,7 @@ def __parse_bvh(bvh_path):
 
     assert 'OFFSET' in lines[line_idx]  # Root offset
     line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
-    #root_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
+    # root_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
     root_offset = line.split(' ')
     assert len(root_offset) == 3
     jt_offsets.append([float(x) for x in root_offset])
@@ -83,10 +83,11 @@ def __parse_bvh(bvh_path):
 
             assert 'OFFSET' in lines[line_idx]
             line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
-            #cur_joint_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])  # FIX for EdinDog 'OFFSET 0 0 0' lines
+            # cur_joint_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
+            # FIX for EdinDog 'OFFSET 0 0 0' lines
             jt_off = line.split(' ')
             assert len(jt_off) == 3
-            #jt_offsets.append([float(x[0]) for x in cur_joint_offset])
+            # jt_offsets.append([float(x[0]) for x in cur_joint_offset])
             jt_offsets.append([float(x) for x in jt_off])
             line_idx += 1
 
@@ -106,7 +107,7 @@ def __parse_bvh(bvh_path):
             line_idx += 2  # Skip to offset line
             assert 'OFFSET' in lines[line_idx]
             line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
-            #cur_endsite_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
+            # cur_endsite_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
             cur_endsite_offset = line.split(' ')
             assert len(cur_endsite_offset) == 3
             endsite_offsets[prev_jt_idx] = [float(x) for x in cur_endsite_offset]
@@ -135,7 +136,8 @@ def __parse_bvh(bvh_path):
     line_idx += 1
 
     while line_idx < num_lines and lines[line_idx]:
-        #cur_motion = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])  # TODO Fix this with proper regex
+        # cur_motion = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
+        # TODO Fix this with proper regex
         cur_motion = lines[line_idx].strip(' \n\t').split(' ')
         assert len(cur_motion) > 0
         motion_data.append([float(x) for x in cur_motion])
@@ -236,7 +238,7 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
     assert len(order) == 3
 
     ch_map = {
-        'x' : 'Xrotation',
+        'x': 'Xrotation',
         'y': 'Yrotation',
         'z': 'Zrotation'
     }
@@ -265,7 +267,7 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
         "{",
         num_indents * '\t' + "OFFSET " + offset,
         num_indents * '\t' + "CHANNELS 6 Xposition Yposition Zposition " +
-            ch_map[order[0]] + " " + ch_map[order[1]] + " " + ch_map[order[2]]
+        ch_map[order[0]] + " " + ch_map[order[1]] + " " + ch_map[order[2]]
     ]
 
     # Joint hierarchy and end offsets
@@ -358,7 +360,6 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
 
 
 if __name__ == "__main__":
-    TEST_PATH = "C:/Research/Data/CAMERA_bvh_loco/Bella/Bella001_walk.bvh"
-    # TEST_PATH = 'C:/Research/Dogimator/python/core/D1_010_KAN01_002.bvh'
-    anim = load_bvh(TEST_PATH, downscale=1)
+    import test_config
+    test_anim = load_bvh(test_config.TEST_FILEPATH)
     # save_bvh('./core/test_save.bvh', anim)

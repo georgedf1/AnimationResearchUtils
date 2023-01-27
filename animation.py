@@ -381,22 +381,24 @@ class AnimationClip:
 
 if __name__ == '__main__':
 
-    # filepath = "C:/Research/Data/CAMERA_bvh_loco/Bella/Bella001_walk.bvh"
-    filepath = "D:/Research/Data/CMU/unzipped/69/69_08.bvh"
-    # filepath = "D:\Research\Data\LAFAN1\walk4_subject1.bvh"
+    # Pass --plot to args to plot
+    import argparse
+    test_parser = argparse.ArgumentParser()
+    test_parser.add_argument('--plot', action='store_true', default=False)
+    test_args = test_parser.parse_args()
+    should_plot = test_args.plot
 
     import bvh
-    import plot
+    import test_config
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
+    test_anim.reorder_axes_inplace(2, 0, 1)
+    test_anim_mir = test_anim.copy()
 
-    anim = bvh.load_bvh(filepath)
-    anim.reorder_axes_inplace(2, 0, 1)
-    anim_mir = anim.copy()
-
-    mir_data = anim_mir.skeleton.generate_mir_data()
-    anim_mir.mirror_inplace(mir_data)
+    test_mir_data = test_anim_mir.skeleton.generate_mir_data()
+    test_anim_mir.mirror_inplace(test_mir_data)
 
     # anim = anim.extract_root_motion()
     # anim.reorder_axes_inplace(2, 0, 1)
-    plot.plot_animation(anim, anim_mir)
-
-    #bvh.save_bvh('bvh_with_rm.bvh', anim)
+    if should_plot:
+        import plot
+        plot.plot_animation(test_anim, test_anim_mir)

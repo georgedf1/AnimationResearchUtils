@@ -98,28 +98,29 @@ def matrix_to_quat(ms):
     # https://github.com/orangeduck/Motion-Matching/blob/main/resources/quat.py
 
     qs = torch.where((ms[..., 2, 2] < 0.0)[..., None],
-                  torch.where((ms[..., 0, 0] > ms[..., 1, 1])[..., None],
-                           torch.cat([
-                               (ms[..., 2, 1] - ms[..., 1, 2])[..., None],
-                               (1.0 + ms[..., 0, 0] - ms[..., 1, 1] - ms[..., 2, 2])[..., None],
-                               (ms[..., 1, 0] + ms[..., 0, 1])[..., None],
-                               (ms[..., 0, 2] + ms[..., 2, 0])[..., None]], dim=-1),
-                           torch.cat([
-                               (ms[..., 0, 2] - ms[..., 2, 0])[..., None],
-                               (ms[..., 1, 0] + ms[..., 0, 1])[..., None],
-                               (1.0 - ms[..., 0, 0] + ms[..., 1, 1] - ms[..., 2, 2])[..., None],
-                               (ms[..., 2, 1] + ms[..., 1, 2])[..., None]], dim=-1)),
-                  torch.where((ms[..., 0, 0] < -ms[..., 1, 1])[..., None],
-                           torch.cat([
-                               (ms[..., 1, 0] - ms[..., 0, 1])[..., None],
-                               (ms[..., 0, 2] + ms[..., 2, 0])[..., None],
-                               (ms[..., 2, 1] + ms[..., 1, 2])[..., None],
-                               (1.0 - ms[..., 0, 0] - ms[..., 1, 1] + ms[..., 2, 2])[..., None]], dim=-1),
-                           torch.cat([
-                               (1.0 + ms[..., 0, 0] + ms[..., 1, 1] + ms[..., 2, 2])[..., None],
-                               (ms[..., 2, 1] - ms[..., 1, 2])[..., None],
-                               (ms[..., 0, 2] - ms[..., 2, 0])[..., None],
-                               (ms[..., 1, 0] - ms[..., 0, 1])[..., None]], dim=-1)))
+                     torch.where((ms[..., 0, 0] > ms[..., 1, 1])[..., None],
+                                 torch.cat([
+                                     (ms[..., 2, 1] - ms[..., 1, 2])[..., None],
+                                     (1.0 + ms[..., 0, 0] - ms[..., 1, 1] - ms[..., 2, 2])[..., None],
+                                     (ms[..., 1, 0] + ms[..., 0, 1])[..., None],
+                                     (ms[..., 0, 2] + ms[..., 2, 0])[..., None]], dim=-1),
+                                 torch.cat([
+                                     (ms[..., 0, 2] - ms[..., 2, 0])[..., None],
+                                     (ms[..., 1, 0] + ms[..., 0, 1])[..., None],
+                                     (1.0 - ms[..., 0, 0] + ms[..., 1, 1] - ms[..., 2, 2])[..., None],
+                                     (ms[..., 2, 1] + ms[..., 1, 2])[..., None]], dim=-1)),
+                     torch.where((ms[..., 0, 0] < -ms[..., 1, 1])[..., None],
+                                 torch.cat([
+                                     (ms[..., 1, 0] - ms[..., 0, 1])[..., None],
+                                     (ms[..., 0, 2] + ms[..., 2, 0])[..., None],
+                                     (ms[..., 2, 1] + ms[..., 1, 2])[..., None],
+                                     (1.0 - ms[..., 0, 0] - ms[..., 1, 1] + ms[..., 2, 2])[..., None]], dim=-1),
+                                 torch.cat([
+                                     (1.0 + ms[..., 0, 0] + ms[..., 1, 1] + ms[..., 2, 2])[..., None],
+                                     (ms[..., 2, 1] - ms[..., 1, 2])[..., None],
+                                     (ms[..., 0, 2] - ms[..., 2, 0])[..., None],
+                                     (ms[..., 1, 0] - ms[..., 0, 1])[..., None]], dim=-1)))
 
     return qs / torch.linalg.norm(qs, dim=-1)[..., None]
 
+# TODO Make some robust hand-checked tests in __main__

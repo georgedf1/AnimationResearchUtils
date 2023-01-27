@@ -48,7 +48,7 @@ def quat_norm(qs):
     return np.linalg.norm(qs, axis=-1)
 
 
-def quat_to_euler(qs, order='zxy', isNorm=False):
+def quat_to_euler(qs, order='zxy', is_norm=False):
     """ outputs in radians """
 
     """
@@ -58,43 +58,43 @@ def quat_to_euler(qs, order='zxy', isNorm=False):
     and the euler computations using this matrix p9+.
     """
 
-    def _m00(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m00(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return q0 ** 2 + q1 ** 2 - q2 ** 2 - q3 ** 2
 
-    def _m01(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m01(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q1 * q2 - q0 * q3)
 
-    def _m02(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m02(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q1 * q3 + q0 * q2)
 
-    def _m10(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m10(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q1 * q2 + q0 * q3)
 
-    def _m11(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m11(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return q0 ** 2 - q1 ** 2 + q2 ** 2 - q3 ** 2
 
-    def _m12(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m12(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q2 * q3 - q0 * q1)
 
-    def _m20(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m20(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q1 * q3 - q0 * q2)
 
-    def _m21(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m21(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return 2 * (q2 * q3 + q0 * q1)
 
-    def _m22(qs):
-        q0, q1, q2, q3 = qs[..., 0], qs[..., 1], qs[..., 2], qs[..., 3]
+    def _m22(qs_in):
+        q0, q1, q2, q3 = qs_in[..., 0], qs_in[..., 1], qs_in[..., 2], qs_in[..., 3]
         return q0 ** 2 - q1 ** 2 - q2 ** 2 + q3 ** 2
 
-    if not isNorm:
+    if not is_norm:
         norms = quat_norm(qs)
         qs = qs / norms[..., None]
 
@@ -174,9 +174,9 @@ def quat_to_euler(qs, order='zxy', isNorm=False):
         raise KeyError('Unknown ordering %s' % order)
 
 
-def quat_to_angle_axis(qs, isNorm=False):
+def quat_to_angle_axis(qs, is_norm=False):
     """ output in radians """
-    if not isNorm:
+    if not is_norm:
         qs = qs / quat_norm(qs)[..., None]
 
     reals = qs[..., 0]
@@ -189,13 +189,13 @@ def quat_to_angle_axis(qs, isNorm=False):
     return angs, axs
 
 
-def quat_to_scaled_axis(qs, isNorm=False):
-    angs, axs = quat_to_angle_axis(qs, isNorm)
+def quat_to_scaled_axis(qs, is_norm=False):
+    angs, axs = quat_to_angle_axis(qs, is_norm)
     return angs * axs
 
 
-def quat_to_matrix(qs, isNorm=False):
-    if not isNorm:
+def quat_to_matrix(qs, is_norm=False):
+    if not is_norm:
         qs = qs / quat_norm(qs)[..., None]
 
     q0s = qs[..., 0]
@@ -293,21 +293,21 @@ def quat_slerp(q0s, q1s, t):
     q1s_n, t = quat_broadcast(q1s_n, t, scalar=True)
 
     # Trig yay
-    cosHalfTheta = np.sum(quat_mul_quat(q0s_n, q1s_n), axis=-1)
-    # cosHalfTheta = np.einsum('...i,...i', qs0_n, qs1_n)
+    cos_half_theta = np.sum(quat_mul_quat(q0s_n, q1s_n), axis=-1)
+    # cos_half_theta = np.einsum('...i,...i', qs0_n, qs1_n)
 
     # If q0s_n = q1s_n or q0s_n = -q1s_n then theta = 0 -> undefined, just return q0s
-    if np.any(np.abs(cosHalfTheta) >= 1.0):
-        raise ArithmeticError("cosHalfTheta out of valid range; check input quaternions are units and valid")
+    if np.any(np.abs(cos_half_theta) >= 1.0):
+        raise ArithmeticError("cos_half_theta out of valid range; check input quaternions are units and valid")
 
-    halfTheta = np.arccos(cosHalfTheta)
-    sinHalfTheta = np.sqrt(1 - cosHalfTheta * cosHalfTheta)
+    half_theta = np.arccos(cos_half_theta)
+    sin_half_theta = np.sqrt(1 - cos_half_theta * cos_half_theta)
 
     # If theta = 180 then result not fully defined in which case any axis is fine:
-    undef = np.abs(sinHalfTheta) < 0.001
+    undef = np.abs(sin_half_theta) < 0.001
 
-    ratio0 = np.sin((1 - t) * halfTheta) / sinHalfTheta
-    ratio1 = np.sin(t * halfTheta) / sinHalfTheta
+    ratio0 = np.sin((1 - t) * half_theta) / sin_half_theta
+    ratio1 = np.sin(t * half_theta) / sin_half_theta
 
     ratio0[undef] = 0.5
     ratio1[undef] = 0.5
@@ -372,11 +372,11 @@ def angle_axis_to_quat(angs, axs, from_degrees=False):
     if from_degrees:
         angs = np.deg2rad(angs)
 
-    isNotId = ~(np.isclose(axs, [0, 0, 0]).all(axis=-1))
+    is_not_id = ~(np.isclose(axs, [0, 0, 0]).all(axis=-1))
     axs_normed = axs.copy()
-    if np.any(isNotId):
-        axs_norms = np.linalg.norm(axs[isNotId], axis=-1)
-        axs_normed[isNotId] = axs[isNotId] / axs_norms[:, np.newaxis]
+    if np.any(is_not_id):
+        axs_norms = np.linalg.norm(axs[is_not_id], axis=-1)
+        axs_normed[is_not_id] = axs[is_not_id] / axs_norms[:, np.newaxis]
 
     c = np.cos(angs / 2)
     s = np.sin(angs / 2)
@@ -456,45 +456,46 @@ def reorder_quat_axes_inplace(qs, new_x, new_y, new_z, mir_x=False, mir_y=False,
     qs[..., 0] *= mul_w
 
 
+# TODO Make some robust hand-checked tests
 if __name__ == '__main__':
 
-    print("Testing quaternion.py functionality:")
+    print("Testing rotation.py functionality:")
 
-    es = np.array([[-1.1, -0.6, 0.2], [0.2, 0.0, 0.7], [0.0, 0.0, 0.0]])
+    test_es = np.array([[-1.1, -0.6, 0.2], [0.2, 0.0, 0.7], [0.0, 0.0, 0.0]])
     # es = np.array([[0.0, -0.6, 0.0], [0.0, 0.6, 0.0], [0.0, 0.0, 0.0]])
 
-    order1 = 'xyz'
-    order2 = 'zyx'
+    test_order1 = 'xyz'
+    test_order2 = 'zyx'
 
-    qs = euler_to_quat(es, order1)
+    test_qs = euler_to_quat(test_es, test_order1)
 
-    es_re = quat_to_euler(qs, order2)
-    qs_re = euler_to_quat(es_re, order2)
-    es_re_re = quat_to_euler(qs_re, order1)
-    es_2 = quat_to_euler(qs, order1)
+    test_es_re = quat_to_euler(test_qs, test_order2)
+    test_qs_re = euler_to_quat(test_es_re, test_order2)
+    test_es_re_re = quat_to_euler(test_qs_re, test_order1)
+    test_es_2 = quat_to_euler(test_qs, test_order1)
 
-    print(order1, es)
-    print(es_2)
-    print(qs)
-    print(order2, es_re)
-    print(qs_re)
-    print(order1, es_re_re)
+    print(test_order1, test_es)
+    print(test_es_2)
+    print(test_qs)
+    print(test_order2, test_es_re)
+    print(test_qs_re)
+    print(test_order1, test_es_re_re)
 
-    # angs = np.array([3.141 / 4])
-    # axs = np.array([[0, 0, 1]])
-    # qs = angle_axis_to_quat(angs, axs)
+    test_angs = np.array([3.141 / 4])
+    test_axs = np.array([[0, 0, 1]])
+    test_qs = angle_axis_to_quat(test_angs, test_axs)
 
-    # up, fwd = quat_to_two_axis(qs)
-    # print(qs)
-    #
-    # print(up)
-    # print(fwd)
-    #
-    # qs_re = two_axis_to_quat(up, fwd)
-    # print(qs_re)
-    #
-    # sc_axs = quat_to_scaled_axis(qs_re)
-    # qs_ = scaled_axis_to_quat(sc_axs)
-    #
-    # print(sc_axs)
-    # print(qs_)
+    test_up, test_fwd = quat_to_two_axis(test_qs)
+    print(test_qs)
+
+    print(test_up)
+    print(test_fwd)
+
+    test_qs_re = two_axis_to_quat(test_up, test_fwd)
+    print(test_qs_re)
+
+    test_sc_axs = quat_to_scaled_axis(test_qs_re)
+    test_qs_ = scaled_axis_to_quat(test_sc_axs)
+
+    print(test_sc_axs)
+    print(test_qs_)

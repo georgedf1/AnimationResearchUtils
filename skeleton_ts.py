@@ -10,11 +10,15 @@ class TensorSkeleton:
         self.hierarchy = hierarchy
         self.offsets = offsets
         self.end_offsets = end_offsets
+        assert type(offsets) == torch.Tensor
+        for jt in end_offsets:
+            assert type(end_offsets[jt]) == torch.Tensor
 
     def cast_to(self, device):
         # No point casting hierarchy as it's only used for indexing
         self.offsets = self.offsets.to(device)
-        self.end_offsets = self.end_offsets.to(device)
+        for jt in self.end_offsets:
+            self.end_offsets[jt] = self.end_offsets[jt].to(device)
 
 
 class SkelPool(nn.Module):
@@ -31,17 +35,17 @@ class SkelPool(nn.Module):
         assert len(self.pool_map[0]) == 1, 'root joint should never be pooled'
         assert self.pool_map[0][0] == 0, 'root joint should never be pooled'
 
-    def forward(self, x):
-        # Expects x of shape [batch, c, ...]
-        assert x.shape[1] == self.c
+    def forward(self, x_in):
+        # Expects x_in of shape [batch, c, ...]
+        assert x_in.shape[1] == self.c
 
-        # x_p differs only by difference in number of channels (per joint)
-        x_p_shape = list(x.shape)
-        x_p_shape[1] = self.c_p
-        x_p = torch.empty(x_p_shape, device=x.device, dtype=x.dtype)
+        # x_out differs only by difference in number of channels (per joint)
+        x_out_shape = list(x_in.shape)
+        x_out_shape[1] = self.c_p
+        x_out = torch.empty(x_out_shape, device=x_in.device, dtype=x_in.dtype)
 
         # Root joint is never pooled so copy
-        x_p[:, :self.c_root] = x[:, :self.c_root]
+        x_out[:, :self.c_root] = x_in[:, :self.c_root]
 
         for jt_p in range(1, self.num_jts_p):
             jts_to_pool = self.pool_map[jt_p]
@@ -51,15 +55,15 @@ class SkelPool(nn.Module):
 
             num_jts_to_pool = len(jts_to_pool)
             if num_jts_to_pool == 1:  # No pooling -> copy
-                x_p[:, idx_p: idx_p + self.c_jt] = x[:, idx_0: idx_0 + self.c_jt]
+                x_out[:, idx_p: idx_p + self.c_jt] = x_in[:, idx_0: idx_0 + self.c_jt]
             elif num_jts_to_pool == 2:  # Pooling -> average
                 idx_1 = self.c_root + (jts_to_pool[1] - 1) * self.c_jt
-                x_p[:, idx_p: idx_p + self.c_jt] = (x[:, idx_0: idx_0 + self.c_jt] +
-                                                    x[:, idx_1: idx_1 + self.c_jt]) / 2.0
+                x_out[:, idx_p: idx_p + self.c_jt] = \
+                    (x_in[:, idx_0: idx_0 + self.c_jt] + x_in[:, idx_1: idx_1 + self.c_jt]) / 2.0
             else:
                 raise Exception('pool_map must consist of only lists of length 1 or 2')
 
-        return x_p
+        return x_out
 
 
 class SkelUnpool(nn.Module):
@@ -79,25 +83,25 @@ class SkelUnpool(nn.Module):
                 continue
             assert jt != 0, 'root is never pooled'
 
-    def forward(self, x_p):
-        # Expects x_p of shape [batch, c_p, ...]
-        assert x_p.shape[1] == self.c_p, 'invalid x_p.shape ' + str(x_p.shape)
+    def forward(self, x_in):
+        # Expects x_in of shape [batch, c_p, ...]
+        assert x_in.shape[1] == self.c_p, 'invalid x_p.shape ' + str(x_in.shape)
 
-        x_shape = list(x_p.shape)
-        x_shape[1] = self.c
-        x = torch.empty(x_shape, device=x_p.device, dtype=x_p.dtype)
+        x_out_shape = list(x_in.shape)
+        x_out_shape[1] = self.c
+        x_out = torch.empty(x_out_shape, device=x_in.device, dtype=x_in.dtype)
 
         # Root always maps directly to root
-        x[:, :self.c_root] = x_p[:, :self.c_root]
+        x_out[:, :self.c_root] = x_in[:, :self.c_root]
 
         # Copy data from pooled joints according to unpool_map
         for jt in range(1, self.num_jts):
             jt_p = self.unpool_map[jt]
             idx_p = self.c_root + (jt_p - 1) * self.c_jt
             idx = self.c_root + (jt - 1) * self.c_jt
-            x[:, idx: idx + self.c_jt] = x_p[:, idx_p: idx_p + self.c_jt]
+            x_out[:, idx: idx + self.c_jt] = x_in[:, idx_p: idx_p + self.c_jt]
 
-        return x
+        return x_out
 
 
 class SkelLinear(nn.Module):
@@ -105,7 +109,7 @@ class SkelLinear(nn.Module):
     Static (skeletal) conv layer of the Aberman method.
     Linear only in the temporal sense; essentially performs convolution spatially across the skeleton.
     """
-    def __init__(self, c_root_in, c_root_out, c_jt_in, c_jt_out, conv_map, bias=True):
+    def __init__(self, c_root_in, c_root_out, c_jt_in, c_jt_out, conv_map, leaky_after, bias=True):
         super(SkelLinear, self).__init__()
 
         self.c_root_in = c_root_in
@@ -116,6 +120,13 @@ class SkelLinear(nn.Module):
         self.num_jts = len(conv_map)  # Number of joints same for input and output
         self.c_in = self.c_root_in + (self.num_jts - 1) * self.c_jt_in
         self.c_out = self.c_root_out + (self.num_jts - 1) * self.c_jt_out
+
+        # Specifies the non-linearity used after this layer
+        # If leaky_after is None, then linear
+        # Otherwise, is leaky_relu, or relu if equal to zero
+        self.leaky_after = leaky_after
+        if leaky_after is not None:
+            assert self.leaky_after >= 0.0
 
         mask, weights, biases = self.__init_weights_and_biases()
         if bias:
@@ -131,7 +142,7 @@ class SkelLinear(nn.Module):
 
         weights = torch.zeros((self.c_out, self.c_in))
         mask = torch.zeros_like(weights)
-        for jt, conv_jts in enumerate(conv_map):
+        for jt, conv_jts in enumerate(self.conv_map):
             c_tmp_out = self.c_root_out if jt == 0 else self.c_jt_out
             idx_out = self.c_root_out + (jt - 1) * self.c_jt_out
 
@@ -141,8 +152,11 @@ class SkelLinear(nn.Module):
             c_tmp_in += self.c_root_in if has_root else self.c_jt_in
 
             tmp = torch.empty((c_tmp_out, c_tmp_in))
-            # TODO try other inits?
-            nn.init.kaiming_normal_(tmp, a=math.sqrt(5))  # Following Aberman method.
+            # https://adityassrana.github.io/blog/theory/2020/08/26/Weight-Init.html#Okay,-now-why-can't-we-trust-PyTorch-to-initialize-our-weights-for-us-by-default?
+            if self.leaky_after is None:
+                nn.init.xavier_normal_(tmp)
+            else:
+                nn.init.kaiming_normal_(tmp, a=self.leaky_after)
 
             idxs_in = []
             for i, conv_jt in enumerate(conv_jts):
@@ -152,15 +166,18 @@ class SkelLinear(nn.Module):
             weights[idx_out: idx_out + c_tmp_out, idxs_in] = tmp
             mask[idx_out: idx_out + c_tmp_out, idxs_in] = 1.0
 
-        fan_in, _ = nn.init._calculate_fan_in_and_fan_out(weights)
+        # Equivalent to:
+        # fan_in, _ = nn.init._calculate_fan_in_and_fan_out(weights)
+        fan_in = self.c_in
         bound = 1 / math.sqrt(fan_in)
         nn.init.uniform_(biases, -bound, bound)
+
         return mask, weights, biases
 
-    def forward(self, x):
-        # Expects x.shape [B, c_in, ...]
-        assert x.shape[1] == self.c_in
-        x_out = F.linear(x, self.weights * self.mask, self.biases)
+    def forward(self, x_in):
+        # Expects x_in.shape [B, c_in, ...]
+        assert x_in.shape[1] == self.c_in
+        x_out = F.linear(x_in, self.weights * self.mask, self.biases)
         return x_out
 
 
@@ -171,7 +188,7 @@ class SkelConv(nn.Module):
 
     """
     def __init__(self, c_root_in, c_root_out, c_jt_in, c_jt_out, conv_map,
-                 kernel_size, stride, bias=True):
+                 kernel_size, stride, leaky_after, bias=True):
         super(SkelConv, self).__init__()
 
         self.c_root_in = c_root_in
@@ -192,6 +209,13 @@ class SkelConv(nn.Module):
         self.kernel_size = kernel_size
         self.padding = (kernel_size - 1) // 2
 
+        # Specifies the non-linearity used after this layer
+        # If leaky_after is None, then linear
+        # Otherwise, is leaky_relu, or relu if equal to zero
+        self.leaky_after = leaky_after
+        if leaky_after is not None:
+            assert self.leaky_after >= 0.0
+
         mask, weights, biases = self.__init_weights_and_biases()
         if bias:
             self.biases = nn.Parameter(biases)
@@ -206,7 +230,7 @@ class SkelConv(nn.Module):
 
         weights = torch.zeros((self.c_out, self.c_in, self.kernel_size))
         mask = torch.zeros_like(weights)
-        for jt, conv_jts in enumerate(conv_map):
+        for jt, conv_jts in enumerate(self.conv_map):
             c_tmp_out = self.c_root_out if jt == 0 else self.c_jt_out
             idx_out = self.c_root_out + (jt - 1) * self.c_jt_out
 
@@ -216,8 +240,11 @@ class SkelConv(nn.Module):
             c_tmp_in += self.c_root_in if has_root else self.c_jt_in
 
             tmp = torch.empty((c_tmp_out, c_tmp_in, self.kernel_size))
-            # TODO try other inits?
-            nn.init.kaiming_normal_(tmp, a=math.sqrt(5))  # Following Aberman method.
+            # https://adityassrana.github.io/blog/theory/2020/08/26/Weight-Init.html#Okay,-now-why-can't-we-trust-PyTorch-to-initialize-our-weights-for-us-by-default?
+            if self.leaky_after is None:
+                nn.init.xavier_normal_(tmp)
+            else:
+                nn.init.kaiming_normal_(tmp, a=self.leaky_after)
 
             idxs_in = []
             for i, conv_jt in enumerate(conv_jts):
@@ -227,35 +254,46 @@ class SkelConv(nn.Module):
             weights[idx_out: idx_out + c_tmp_out, idxs_in] = tmp
             mask[idx_out: idx_out + c_tmp_out, idxs_in] = 1.0
 
-        fan_in, _ = nn.init._calculate_fan_in_and_fan_out(weights)
+        # Equivalent to:
+        # fan_in, _ = nn.init._calculate_fan_in_and_fan_out(weights)
+        fan_in = self.c_in
         bound = 1 / math.sqrt(fan_in)
         nn.init.uniform_(biases, -bound, bound)
+
         return mask, weights, biases
 
-    def forward(self, x):
+    def forward(self, x_in):
         # Expects static data x of shape [B, C, T]
-        assert len(x.shape) == 3, 'invalid shape ' + str(x.shape)
-        assert x.shape[1] == self.c_in
-        x_out = F.conv1d(x, self.mask * self.weights, self.biases, self.stride, self.padding)
+        assert len(x_in.shape) == 3, 'invalid shape ' + str(x_in.shape)
+        assert x_in.shape[1] == self.c_in
+        x_out = F.conv1d(x_in, self.mask * self.weights, self.biases, self.stride, self.padding)
         # x_out shape [B, C_D + C_S, T]
         return x_out
 
 
 if __name__ == "__main__":
+
+    # Pass --plot to args for plot
+    import argparse
+    test_parser = argparse.ArgumentParser()
+    test_parser.add_argument('--plot', action='store_true', default=False)
+    test_args = test_parser.parse_args()
+    should_plot = test_args.plot
+
     print("Testing SkeletalConv -> SkelPool -> SkelLinear -> SkelUnpool")
     import bvh
+    import test_config
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
 
-    anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
+    test_skeleton = test_anim.skeleton
+    test_scheme = SkeletalConvPoolScheme(test_skeleton.jt_hierarchy, True)
 
-    skeleton = anim.skeleton
-    scheme = SkeletalConvPoolScheme(skeleton.jt_hierarchy, True)
-
-    hierarchy = scheme.hierarchies[0]
-    hierarchy_p = scheme.hierarchies[1]
-    pool_map = scheme.pool_maps[0]
-    unpool_map = scheme.unpool_maps[0]
-    conv_map = scheme.conv_maps[0]
-    conv_map_p = scheme.conv_maps[1]
+    test_hierarchy = test_scheme.hierarchies[0]
+    test_hierarchy_p = test_scheme.hierarchies[1]
+    test_pool_map = test_scheme.pool_maps[0]
+    test_unpool_map = test_scheme.unpool_maps[0]
+    test_conv_map = test_scheme.conv_maps[0]
+    test_conv_map_p = test_scheme.conv_maps[1]
 
     BATCH_SIZE = 64
     WIN_LEN = 60
@@ -265,51 +303,56 @@ if __name__ == "__main__":
     C_JT = 4
     C_ROOT_P = 16
     C_JT_P = 8
-    C = C_ROOT + (len(hierarchy) - 1) * C_JT
-    C_P = C_ROOT_P + (len(hierarchy_p) - 1) * C_JT_P
+    C = C_ROOT + (len(test_hierarchy) - 1) * C_JT
+    C_P = C_ROOT_P + (len(test_hierarchy_p) - 1) * C_JT_P
+    LEAKY_CONV = 0.2
+    LEAKY_LIN = None
 
-    conv = SkelConv(C_ROOT, C_ROOT_P, C_JT, C_JT_P, conv_map, KERNEL_SIZE, STRIDE)
-    pool = SkelPool(C_ROOT_P, C_JT_P, pool_map)
-    linear = SkelLinear(C_ROOT_P, C_ROOT, C_JT_P, C_JT, conv_map_p, bias=True)
-    unpool = SkelUnpool(C_ROOT, C_JT, unpool_map)
+    test_conv = SkelConv(C_ROOT, C_ROOT_P, C_JT, C_JT_P, test_conv_map, KERNEL_SIZE, STRIDE, LEAKY_CONV)
+    test_pool = SkelPool(C_ROOT_P, C_JT_P, test_pool_map)
+    test_linear = SkelLinear(C_ROOT_P, C_ROOT, C_JT_P, C_JT, test_conv_map_p, LEAKY_LIN, bias=True)
+    test_unpool = SkelUnpool(C_ROOT, C_JT, test_unpool_map)
 
-    x = torch.empty((BATCH_SIZE, C, WIN_LEN))
+    # Instead of this, imagine getting this from animation data, the shape is the same.
+    test_x = torch.empty((BATCH_SIZE, C, WIN_LEN))
 
     print('C_ROOT={}, C_JT={}, NUM_JTS={}, C_ROOT_P={}, C_JT_P={}, NUM_JTS_P={}'
-          .format(C_ROOT, C_JT, len(hierarchy), C_ROOT_P, C_JT_P, len(hierarchy_p)))
+          .format(C_ROOT, C_JT, len(test_hierarchy), C_ROOT_P, C_JT_P, len(test_hierarchy_p)))
 
-    x_c = conv(x)
-    print('SkelConv:', x.shape, '->', x_c.shape)
+    test_x_c = test_conv(test_x)
+    print('SkelConv:', test_x.shape, '->', test_x_c.shape)
 
-    x_p = pool(x_c)
-    print('SkelPool:', x_c.shape, '->', x_p.shape)
+    test_x_p = test_pool(test_x_c)
+    print('SkelPool:', test_x_c.shape, '->', test_x_p.shape)
 
     # Note since linear doesn't act on time we need to move the temporal dim into the batch dim
-    x_p_flat = torch.transpose(x_p, 1, 2).reshape((-1, x_p.shape[1]))
-    x_l_flat = linear(x_p_flat)
-    x_l = torch.transpose(x_l_flat.reshape((BATCH_SIZE, WIN_LEN, -1)), 1, 2)
-    print('SkelLinear:', x_p.shape, '->', x_l.shape)
+    test_x_p_flat = torch.transpose(test_x_p, 1, 2).reshape((-1, test_x_p.shape[1]))
+    test_x_l_flat = test_linear(test_x_p_flat)
+    test_x_l = torch.transpose(test_x_l_flat.reshape((BATCH_SIZE, WIN_LEN, -1)), 1, 2)
+    print('SkelLinear:', test_x_p.shape, '->', test_x_l.shape)
 
-    x_re = unpool(x_l)
-    print('SkelUnpool:', x_l.shape, '->', x_re.shape)
+    test_x_re = test_unpool(test_x_l)
+    print('SkelUnpool:', test_x_l.shape, '->', test_x_re.shape)
 
-    crude_loss = torch.linalg.norm(x_re)
-    crude_loss.backward()
+    test_loss = torch.linalg.norm(test_x_re)
+    test_loss.backward()
     print('Backprop success!')
 
-    # Plot some skeletons
-    # import plot
-    # offsets = skeleton.jt_offsets.copy()
-    # plot.plot_skeleton(Skeleton([], hierarchy, offsets, {}))
-    # for i, pool_map in enumerate(scheme.pool_maps):
-    #     offsets_p = []
-    #     hierarchy_p = scheme.hierarchies[i + 1]
-    #     for jt_p in range(len(pool_map)):
-    #         jts = pool_map[jt_p]
-    #         offset_p = 0.0
-    #         for jt in jts:
-    #             offset_p += offsets[jt]
-    #         offsets_p.append(offset_p)
-    #     skel_p = Skeleton([], hierarchy_p, offsets_p, {})
-    #     plot.plot_skeleton(skel_p)
-    #     offsets = offsets_p.copy()
+    if should_plot:
+        # Plots the pooled skeletons
+        import plot
+        from skeleton import Skeleton
+        test_offsets = test_skeleton.jt_offsets.copy()
+        plot.plot_skeleton(Skeleton([], test_hierarchy, test_offsets, {}))
+        for test_i, test_pool_map in enumerate(test_scheme.pool_maps):
+            test_offsets_p = []
+            test_hierarchy_p = test_scheme.hierarchies[test_i + 1]
+            for test_jt_p in range(len(test_pool_map)):
+                test_jts = test_pool_map[test_jt_p]
+                test_offset_p = 0.0
+                for test_jt in test_jts:
+                    test_offset_p += test_offsets[test_jt]
+                test_offsets_p.append(test_offset_p)
+            test_skel_p = Skeleton([], test_hierarchy_p, test_offsets_p, {})
+            plot.plot_skeleton(test_skel_p)
+            test_offsets = test_offsets_p.copy()

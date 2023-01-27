@@ -236,6 +236,7 @@ class SkeletalConvPoolScheme:
         children = [[] for _ in range(num_jts)]
         for jt in range(1, num_jts):
             par_jt = hierarchy[jt]
+            # noinspection PyTypeChecker
             children[par_jt].append(jt)
         if verbose:
             print('children')
@@ -267,6 +268,7 @@ class SkeletalConvPoolScheme:
 
                 if use_parents_children_in_skel_conv:
                     par_children = children[par_jt].copy()
+                    # noinspection PyTypeChecker
                     par_children.remove(jt)
                     nbrs.extend(par_children)
 
@@ -283,27 +285,27 @@ class SkeletalConvPoolScheme:
 
 if __name__ == "__main__":
     import bvh
+    import test_config
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
 
-    anim = bvh.load_bvh("D:/Research/Data/CMU/unzipped/69/69_01.bvh")
-
-    hierarchy = anim.skeleton.jt_hierarchy
-    scheme = SkeletalConvPoolScheme(hierarchy, False)
-    scheme_p = SkeletalConvPoolScheme(hierarchy, True)
+    test_hierarchy = test_anim.skeleton.jt_hierarchy
+    test_scheme = SkeletalConvPoolScheme(test_hierarchy, False)
+    test_scheme_p = SkeletalConvPoolScheme(test_hierarchy, True)
 
     print('Start with hierarchy')
-    print(scheme_p.hierarchies[0])
+    print(test_scheme_p.hierarchies[0])
     print('with conv_map')
-    print(scheme_p.conv_maps[0])
+    print(test_scheme_p.conv_maps[0])
 
-    for i in range(scheme_p.num_maps - 1):
+    for i in range(test_scheme_p.num_maps - 1):
         print('\n(op', i, ')')
         print('Now we transform hierarchy')
-        print(scheme_p.hierarchies[i])
+        print(test_scheme_p.hierarchies[i])
         print('via pool_map')
-        print(scheme_p.pool_maps[i])
+        print(test_scheme_p.pool_maps[i])
         print('to hierarchy')
-        print(scheme_p.hierarchies[i + 1])
+        print(test_scheme_p.hierarchies[i + 1])
         print('which has conv_map')
-        print(scheme_p.conv_maps[i + 1])
+        print(test_scheme_p.conv_maps[i + 1])
         print('and can be inverted with unpool_map')
-        print(scheme_p.unpool_maps[i])
+        print(test_scheme_p.unpool_maps[i])

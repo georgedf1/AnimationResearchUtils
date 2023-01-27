@@ -62,7 +62,7 @@ def __get_sliders(frames, slider_pts):
 
 def plot_animation(anim: animation.AnimationClip,
                    other_anim: animation.AnimationClip = None,
-                   ft_ms=None, end_sites=True, ignore_root=False, name='',
+                   ft_ms=None, end_sites=True, ignore_root=False, title=None,
                    marker_size=5, line_size=4, end_marker_diff_color=False,
                    use_slider=True, slider_pts=20):
 
@@ -77,8 +77,8 @@ def plot_animation(anim: animation.AnimationClip,
     rots = anim.rotations.copy()
     skel = anim.skeleton.copy()
     posis = {}
-    for jt in anim.positions:
-        posis[jt] = anim.positions[jt].copy()
+    for jt_ep in anim.positions:
+        posis[jt_ep] = anim.positions[jt_ep].copy()
 
     global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
     end_posis_list = [global_end_posis]
@@ -87,8 +87,8 @@ def plot_animation(anim: animation.AnimationClip,
         other_rots = other_anim.rotations.copy()
         other_skel = other_anim.skeleton.copy()
         other_posis = {}
-        for jt in other_anim.positions:
-            other_posis[jt] = other_anim.positions[jt].copy()
+        for jt_ep in other_anim.positions:
+            other_posis[jt_ep] = other_anim.positions[jt_ep].copy()
 
         other_global_posis, _, other_global_end_posis = kinematics.forward_kinematics(
             other_root_posis, other_rots, other_skel, other_posis)
@@ -108,15 +108,16 @@ def plot_animation(anim: animation.AnimationClip,
 
     if end_sites:
         for end_posis in end_posis_list:
-            for jt in end_posis:
-                x_min = min(x_min, np.min(end_posis[jt][..., 0]))
-                x_max = max(x_max, np.max(end_posis[jt][..., 0]))
-                y_min = min(y_min, np.min(end_posis[jt][..., 1]))
-                y_max = max(y_max, np.max(end_posis[jt][..., 1]))
-                z_min = min(z_min, np.min(end_posis[jt][..., 2]))
-                z_max = max(z_max, np.max(end_posis[jt][..., 2]))
+            for jt_ep in end_posis:
+                x_min = min(x_min, np.min(end_posis[jt_ep][..., 0]))
+                x_max = max(x_max, np.max(end_posis[jt_ep][..., 0]))
+                y_min = min(y_min, np.min(end_posis[jt_ep][..., 1]))
+                y_max = max(y_max, np.max(end_posis[jt_ep][..., 1]))
+                z_min = min(z_min, np.min(end_posis[jt_ep][..., 2]))
+                z_max = max(z_max, np.max(end_posis[jt_ep][..., 2]))
 
     # TODO Make more sophisticated (keep centre zero)
+    # noinspection DuplicatedCode
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
         x_max = x_max * max_val / ((x_max - x_min) + PLOT_EPSILON)
@@ -218,21 +219,21 @@ def plot_animation(anim: animation.AnimationClip,
 
     def get_data(fr):
         posis_list = [global_posis]
-        end_posis_list = [global_end_posis]
+        end_posis_list_ = [global_end_posis]
         if other_anim is not None:
             posis_list.append(other_global_posis)
-            end_posis_list.append(other_global_end_posis)
+            end_posis_list_.append(other_global_end_posis)
         i = 0
         data = []
-        for posis, end_posis in zip(posis_list, end_posis_list):
+        for posis_, end_posis_ in zip(posis_list, end_posis_list_):
             color = 'blue' if i == 0 else 'red'
             other_color = 'red' if color == 'blue' else 'blue'
             end_color = other_color if end_marker_diff_color else color
-            data.append(get_joint_data(posis, fr, color))
-            data.append(get_bone_data(posis, fr, color))
+            data.append(get_joint_data(posis_, fr, color))
+            data.append(get_bone_data(posis_, fr, color))
             if end_sites:
-                data.append(get_end_joint_data(end_posis, fr, end_color))
-                data.append(get_end_bone_data(posis, end_posis, fr, end_color))
+                data.append(get_end_joint_data(end_posis_, fr, end_color))
+                data.append(get_end_bone_data(posis_, end_posis_, fr, end_color))
             i += 1
         return data
 
@@ -245,7 +246,7 @@ def plot_animation(anim: animation.AnimationClip,
         zaxis=dict(range=[z_min, z_max], nticks=10, autorange=False, zeroline=False)
     )
     layout_dict = dict(
-        title='Animation plot - ' + name,
+        title='Animation plot' if title is None else 'Animation plot - ' + title,
         hovermode='closest',
         scene=scene,
         updatemenus=__get_updatemenus(ft_ms)
@@ -264,7 +265,7 @@ def plot_animation(anim: animation.AnimationClip,
     fig.show()
 
 
-def plot_positions(positions: np.ndarray, frame_time, other_positions=None, marker_size=5, name='',
+def plot_positions(positions: np.ndarray, frame_time, other_positions=None, marker_size=5, title=None,
                    use_slider=True, slider_pts=20):
 
     if use_slider and slider_pts > 20:
@@ -289,6 +290,7 @@ def plot_positions(positions: np.ndarray, frame_time, other_positions=None, mark
     z_max = np.max(stat_positions[..., 2])
 
     # TODO Make more sophisticated (keep centre zero)
+    # noinspection DuplicatedCode
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
         x_max = x_max * max_val / ((x_max - x_min) + PLOT_EPSILON)
@@ -347,7 +349,7 @@ def plot_positions(positions: np.ndarray, frame_time, other_positions=None, mark
     )
 
     layout_dict = dict(
-        title='Positions plot - ' + name,
+        title='Positions plot' if title is None else 'Positions plot - ' + title,
         hovermode='closest',
         scene=scene,
         updatemenus=__get_updatemenus(ft_ms)
@@ -365,7 +367,7 @@ def plot_positions(positions: np.ndarray, frame_time, other_positions=None, mark
     fig.show()
 
 
-def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_size=4):
+def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_size=4, title=None):
 
     root_pos = np.zeros((1, 3))
     root_rots = np.zeros((1, skel.num_jts, 4))
@@ -379,13 +381,13 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
     y_max = np.max(global_posis[..., 1])
     z_min = np.min(global_posis[..., 2])
     z_max = np.max(global_posis[..., 2])
-    for jt in global_end_posis:
-        x_min = min(x_min, np.min(global_end_posis[jt][..., 0]))
-        x_max = max(x_max, np.max(global_end_posis[jt][..., 0]))
-        y_min = min(y_min, np.min(global_end_posis[jt][..., 1]))
-        y_max = max(y_max, np.max(global_end_posis[jt][..., 1]))
-        z_min = min(z_min, np.min(global_end_posis[jt][..., 2]))
-        z_max = max(z_max, np.max(global_end_posis[jt][..., 2]))
+    for jt_gep in global_end_posis:
+        x_min = min(x_min, np.min(global_end_posis[jt_gep][..., 0]))
+        x_max = max(x_max, np.max(global_end_posis[jt_gep][..., 0]))
+        y_min = min(y_min, np.min(global_end_posis[jt_gep][..., 1]))
+        y_max = max(y_max, np.max(global_end_posis[jt_gep][..., 1]))
+        z_min = min(z_min, np.min(global_end_posis[jt_gep][..., 2]))
+        z_max = max(z_max, np.max(global_end_posis[jt_gep][..., 2]))
 
     max_val = np.max([x_max - x_min, y_max - y_min, z_max - z_min])
     if x_max - x_min < max_val:
@@ -485,7 +487,7 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
     fig = go.Figure(
         data=get_data(),
         layout=go.Layout(
-            title='Skeleton plot',
+            title='Skeleton plot' if title is None else 'Skeleton plot - ' + title,
             hovermode='closest',
             scene=dict(
                 aspectmode='cube',
@@ -502,22 +504,26 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
 if __name__ == "__main__":
     """ Test plotting animation """
     import bvh
-    # LOAD_PATH = 'C:/Research/Data/CAMERA_bvh/Kaya/Kaya03_walk.bvh'
-    LOAD_PATH = 'D:/Research/Data/LAFAN1/walk1_subject5.bvh'
-    anim = bvh.load_bvh(LOAD_PATH, downscale=1.0)
-    anim = anim.extract_root_motion()
-    anim.reorder_axes_inplace(2, 0, 1)
+    import test_config
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH, downscale=1.0)
+    test_anim = test_anim.extract_root_motion()
+    test_anim.reorder_axes_inplace(2, 0, 1)
 
-    # anim2 = anim.copy()
-    # anim2.root_positions[..., 0] += 10.0
-    # plot_animation(anim, anim2, ignore_root=True)
-    plot_animation(anim, ignore_root=True)
+    plot_animation(test_anim, ignore_root=True)
 
-    # root_posis = anim.root_positions.copy()
-    # rots = anim.rotations.copy()
-    # skel = anim.skeleton.copy()
-    # posis = {}
-    # for jt in anim.positions:
-    #     posis[jt] = anim.positions[jt].copy()
-    # global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-    # plot_positions(global_posis, frame_time=anim.frame_time, use_slider=True)
+    test_root_posis = test_anim.root_positions.copy()
+    test_rots = test_anim.rotations.copy()
+    test_skel = test_anim.skeleton.copy()
+    test_posis = {}
+    for test_jt in test_anim.positions:
+        test_posis[test_jt] = test_anim.positions[test_jt].copy()
+    test_global_posis, _, test_global_end_posis = kinematics.forward_kinematics(
+        test_root_posis, test_rots, test_skel, test_posis)
+    test_geps_list = []
+    for test_jt in test_global_end_posis:
+        test_geps_list.append(test_global_end_posis[test_jt][:, None])
+    test_geps_concat = np.concatenate(test_geps_list, axis=1)
+    test_all_posis = np.append(test_global_posis, test_geps_concat, axis=1)
+    plot_positions(test_all_posis, frame_time=test_anim.frame_time, use_slider=True)
+
+    plot_skeleton(test_anim.skeleton)

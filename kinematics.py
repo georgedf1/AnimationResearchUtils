@@ -70,3 +70,47 @@ def local_to_global(fk_pos, fk_end_pos, root_pos, root_rot):
         global_end_pos[jt] = root_pos + rotation.quat_mul_vec(root_rot, fk_end_pos[jt])
 
     return global_pos, global_end_pos
+
+
+if __name__ == "__main__":
+
+    # Pass --plot to args for plot
+    import argparse
+    test_parser = argparse.ArgumentParser()
+    test_parser.add_argument('--plot', action='store_true', default=False)
+    test_args = test_parser.parse_args()
+    should_plot = test_args.plot
+
+    import bvh
+    import test_config
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
+
+    test_gps, test_grs, test_geps = forward_kinematics(
+        test_anim.root_positions, test_anim.rotations, test_anim.skeleton, test_anim.positions)
+    print(test_gps.shape)
+
+    test_ps, test_rs, test_eps = forward_kinematics(
+        test_anim.root_positions, test_anim.rotations, test_anim.skeleton, test_anim.positions, True)
+    print(test_ps.shape)
+
+    test_gps_re, test_geps_re = local_to_global(
+        test_ps, test_eps, test_anim.root_positions, test_anim.rotations[:, 0])
+    print(test_gps_re.shape)
+
+    if should_plot:
+        import plot
+
+        test_geps_list = []
+        for test_jt in test_geps:
+            test_geps_list.append(test_geps[test_jt][:, None])
+        test_geps_arr = np.concatenate(test_geps_list, axis=1)
+        test_all_pos = np.append(test_gps, test_geps_arr, axis=1)
+
+        test_geps_re_list = []
+        for test_jt in test_geps_re:
+            test_geps_re_list.append(test_geps_re[test_jt][:, None])
+        test_geps_re_arr = np.concatenate(test_geps_re_list, axis=1)
+        test_all_pos_re = np.append(test_gps_re, test_geps_re_arr, axis=1)
+
+        test_all_pos_re[..., 0] += 1.0  # shift slightly in one dimension
+        plot.plot_positions(test_all_pos, frame_time=test_anim.frame_time, other_positions=test_all_pos_re)
