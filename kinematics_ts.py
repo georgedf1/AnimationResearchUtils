@@ -3,25 +3,26 @@ import skeleton_ts
 import rotation_ts
 
 
-def forward_kinematics(root_positions, rotations, skeleton: skeleton_ts.TensorSkeleton,
+def forward_kinematics(root_positions, rotations, skeleton: skeleton_ts.TensorSkeletonBatch,
                        positions=None, local_to_root=False):
     """
-    :param root_positions: (torch.Tensor) root positions shape (..., 3)
-    :param rotations: (torch.Tensor) local joint rotations shape (..., J, 4)
-    :param skeleton: (TensorSkeleton)
+    :param root_positions: (torch.Tensor) root positions shape (B, T, 3)
+    :param rotations: (torch.Tensor) local joint rotations shape (B, T, J, 4)
+    :param skeleton: (TensorSkeletonBatch)
+        with offsets of shape (B, J, 3), and end_offsets containing elements of shape (B, 3)
     :param positions: (dict) dictionary mapping jt to local position offset (overriding the offset for that jt)
+        of shape (B, T, 3)
     :param local_to_root: (bool) If true the global root info is ignored, otherwise it is not.
-    :return: (torch.Tensor) global_positions (local to the root position) of shape (..., J, 3),
-        (torch.Tensor) global_rotations of shape (..., J, 4)
+    :return: (torch.Tensor) global_positions (local to the root position) of shape (B, T, J, 3),
+        (torch.Tensor) global_rotations of shape (B, T, J, 4)
         (dict) global_end_sites - maps a jt to its child end site global position if it has one
-
-    Note that by design, although this is parallel, it assumes the same skeleton is used for each batch
     """
     if positions is None:
         positions = {}
 
-    shape = rotations.shape
-    num_jts = shape[-2]
+    batch_size = rotations.shape[0]
+    win_len = rotations.shape[1]
+    num_jts = rotations.shape[2]
 
     # We have to use lists of tensors for jts here or else pytorch anomaly detection will get annoyed at us :)
     if local_to_root:
@@ -35,11 +36,16 @@ def forward_kinematics(root_positions, rotations, skeleton: skeleton_ts.TensorSk
     global_end_positions = {}
 
     hierarchy = skeleton.hierarchy
-    offsets = torch.broadcast_to(skeleton.offsets, shape[:-2] + (num_jts, 3))
-    end_offsets = skeleton.end_offsets
+    offsets = torch.broadcast_to(
+        skeleton.offsets.clone()[:, None], (batch_size, win_len, num_jts, 3))
+    end_offsets = {}
+    for eo_jt in skeleton.end_offsets:
+        end_offsets[eo_jt] = torch.broadcast_to(
+            skeleton.end_offsets[eo_jt].clone()[:, None], (batch_size, win_len, 3))
 
     for jt in range(1, num_jts):
         par_jt = hierarchy[jt]
+
         posis = positions[jt][..., None, :] if jt in positions else offsets[..., jt:jt+1, :]
 
         global_rotations.append(rotation_ts.quat_mul_quat(
@@ -94,19 +100,20 @@ if __name__ == "__main__":
 
     test_skel = test_anim.skeleton
 
-    test_skel_offsets_ts = torch.from_numpy(test_skel.jt_offsets)
+    test_skel_offsets_ts = torch.from_numpy(test_skel.jt_offsets)[None]
     test_skel_end_offsets_ts = {}
     for test_jt in test_skel.end_offsets:
-        test_skel_end_offsets_ts[test_jt] = torch.from_numpy(test_skel.end_offsets[test_jt])
-    test_skel_ts = skeleton_ts.TensorSkeleton(test_skel.jt_hierarchy, test_skel_offsets_ts, test_skel_end_offsets_ts)
+        test_skel_end_offsets_ts[test_jt] = torch.from_numpy(test_skel.end_offsets[test_jt][None])
+    test_skel_ts = skeleton_ts.TensorSkeletonBatch(
+        test_skel.jt_hierarchy, test_skel_offsets_ts, test_skel_end_offsets_ts)
 
     import torch
     with torch.no_grad():
-        test_rps_ts = torch.from_numpy(test_anim.root_positions)
-        test_rots_ts = torch.from_numpy(test_anim.rotations)
+        test_rps_ts = torch.from_numpy(test_anim.root_positions)[None]
+        test_rots_ts = torch.from_numpy(test_anim.rotations)[None]
         test_posis_ts = {}
         for test_jt in test_anim.positions:
-            test_posis_ts[test_jt] = torch.from_numpy(test_anim.positions[test_jt])
+            test_posis_ts[test_jt] = torch.from_numpy(test_anim.positions[test_jt])[None]
 
         test_gps_ts, test_grs_ts, test_geps_ts = forward_kinematics(
             test_rps_ts, test_rots_ts, test_skel_ts, test_posis_ts)
@@ -115,7 +122,7 @@ if __name__ == "__main__":
             test_rps_ts, test_rots_ts, test_skel_ts, test_posis_ts, True)
 
         test_gps_re_ts, test_geps_re_ts = local_to_global(
-            test_ps_ts, test_eps_ts, test_rps_ts, test_rots_ts[:, 0])
+            test_ps_ts, test_eps_ts, test_rps_ts, test_rots_ts[..., 0, :])
 
         test_gps = test_gps_ts.numpy()
         test_geps = {}
@@ -127,8 +134,13 @@ if __name__ == "__main__":
         for test_jt in test_geps_re_ts:
             test_geps_re[test_jt] = test_geps_re_ts[test_jt].numpy()
 
-    print(test_gps.shape)
-    print(test_gps_re.shape)
+    # Remove batch dimension
+    test_gps = test_gps[0]
+    test_gps_re = test_gps_re[0]
+    for test_jt in test_geps:
+        test_geps[test_jt] = test_geps[test_jt][0]
+    for test_jt in test_geps_re:
+        test_geps_re[test_jt] = test_geps_re[test_jt][0]
 
     if should_plot:
         import plot

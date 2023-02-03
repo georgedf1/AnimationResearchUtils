@@ -5,7 +5,8 @@ import torch.nn.functional as F
 from skeleton import SkeletalConvPoolScheme
 
 
-class TensorSkeleton:
+class TensorSkeletonBatch:
+    """ Represents a batch of skeletons with common hierarchy (but potentially differing offsets) using tensors """
     def __init__(self, hierarchy, offsets, end_offsets):
         self.hierarchy = hierarchy
         self.offsets = offsets
@@ -13,6 +14,8 @@ class TensorSkeleton:
         assert type(offsets) == torch.Tensor
         for jt in end_offsets:
             assert type(end_offsets[jt]) == torch.Tensor
+            assert len(end_offsets[jt].shape) == 2, 'end_offset entries should have shape [B, 3]'
+        assert len(offsets.shape) == 3, 'offsets should have shape [B, J, 3]'
 
     def cast_to(self, device):
         # No point casting hierarchy as it's only used for indexing
@@ -144,6 +147,8 @@ class SkelLinear(nn.Module):
         mask = torch.zeros_like(weights)
         for jt, conv_jts in enumerate(self.conv_map):
             c_tmp_out = self.c_root_out if jt == 0 else self.c_jt_out
+            if c_tmp_out == 0:
+                continue
             idx_out = self.c_root_out + (jt - 1) * self.c_jt_out
 
             has_root = 0 in conv_jts
@@ -193,9 +198,13 @@ class SkelConv(nn.Module):
 
         self.c_root_in = c_root_in
         self.c_root_out = c_root_out
+        if c_root_in == 0:
+            assert c_root_out == 0, 'c_root_out must be zero when c_root_in is zero'
 
         self.c_jt_in = c_jt_in
         self.c_jt_out = c_jt_out
+        assert c_jt_in > 0, 'c_jt_in must be strictly positive'
+        assert c_jt_out > 0, 'c_jt_out must be strictly positive'
 
         self.num_jts = len(conv_map)
 
@@ -231,6 +240,9 @@ class SkelConv(nn.Module):
         weights = torch.zeros((self.c_out, self.c_in, self.kernel_size))
         mask = torch.zeros_like(weights)
         for jt, conv_jts in enumerate(self.conv_map):
+            # Skip root when not mapping any root channels
+            if jt == 0 and self.c_root_in == 0:
+                continue
             c_tmp_out = self.c_root_out if jt == 0 else self.c_jt_out
             idx_out = self.c_root_out + (jt - 1) * self.c_jt_out
 
