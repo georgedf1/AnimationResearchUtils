@@ -2,26 +2,77 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from skeleton import SkeletalConvPoolScheme
+from skeleton import Skeleton, SkeletalConvPoolScheme
+import typing
+import numpy as np
 
 
 class TensorSkeletonBatch:
     """ Represents a batch of skeletons with common hierarchy (but potentially differing offsets) using tensors """
     def __init__(self, hierarchy, offsets, end_offsets):
-        self.hierarchy = hierarchy
-        self.offsets = offsets
-        self.end_offsets = end_offsets
+        # Expects
+        # hierarchy of shape [J,]
+        # offsets of shape [B, J, 3]
+        # end_offsets dict with entries of shape [B, 3]
+
+        assert len(hierarchy.shape) == 1
+        num_jts = hierarchy.shape[0]
+
+        assert len(offsets.shape) == 3
+        batch_size = offsets.shape[0]
+        assert offsets.shape[1] == num_jts
+        assert offsets.shape[2] == 3
+
+        for jt in end_offsets:
+            assert len(end_offsets[jt].shape) == 2
+            assert end_offsets[jt].shape[0] == batch_size
+            assert end_offsets[jt].shape[1] == 3
+
         assert type(offsets) == torch.Tensor
         for jt in end_offsets:
             assert type(end_offsets[jt]) == torch.Tensor
-            assert len(end_offsets[jt].shape) == 2, 'end_offset entries should have shape [B, 3]'
-        assert len(offsets.shape) == 3, 'offsets should have shape [B, J, 3]'
+
+        self.hierarchy = hierarchy
+        self.offsets = offsets
+        self.end_offsets = end_offsets
 
     def cast_to(self, device):
         # No point casting hierarchy as it's only used for indexing
         self.offsets = self.offsets.to(device)
         for jt in self.end_offsets:
             self.end_offsets[jt] = self.end_offsets[jt].to(device)
+
+    @staticmethod
+    def from_skeletons(skeletons: typing.Iterable[Skeleton]):
+        all_offsets = []
+        all_end_offsets = None
+        hierarchy_og = None
+        for skeleton in skeletons:
+            hierarchy = skeleton.jt_hierarchy.copy()
+            if hierarchy_og is None:
+                hierarchy_og = hierarchy
+            assert hierarchy.shape == hierarchy_og.shape
+            assert np.all(hierarchy == hierarchy_og)
+
+            offsets = skeleton.jt_offsets
+            offsets_ts = torch.tensor(offsets)[None]
+            all_offsets.append(offsets_ts)
+
+            end_offsets = skeleton.end_offsets
+            end_offsets_ts = {}
+            for jt in end_offsets:
+                end_offsets_ts[jt] = torch.tensor(end_offsets[jt][None])
+            if all_end_offsets is None:
+                all_end_offsets = {jt: [] for jt in end_offsets_ts}
+            for jt in all_end_offsets:
+                all_end_offsets[jt].append(end_offsets_ts[jt])
+
+        all_offsets_ts = torch.cat(all_offsets, dim=0)
+        all_end_offsets_ts = {}
+        for jt in all_end_offsets:
+            all_end_offsets_ts[jt] = torch.cat(all_end_offsets[jt], dim=0)
+
+        return TensorSkeletonBatch(hierarchy_og, all_offsets_ts, all_end_offsets_ts)
 
 
 class SkelPool(nn.Module):
@@ -299,6 +350,8 @@ if __name__ == "__main__":
 
     test_skeleton = test_anim.skeleton
     test_scheme = SkeletalConvPoolScheme(test_skeleton.jt_hierarchy, True)
+
+    test_skel_batch = TensorSkeletonBatch.from_skeletons([test_skeleton.copy(), test_skeleton.copy()])
 
     test_hierarchy = test_scheme.hierarchies[0]
     test_hierarchy_p = test_scheme.hierarchies[1]
