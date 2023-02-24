@@ -5,7 +5,8 @@ import torch
 
 
 class TensorAnimBatch:
-    def __init__(self, root_positions, rotations, positions, skeleton: skeleton_ts.TensorSkeletonBatch):
+    def __init__(self, root_positions: torch.Tensor, rotations: torch.Tensor, positions: dict,
+                 skeleton: skeleton_ts.TensorSkeletonBatch):
         # Expects
         # root_positions shape [B, T, 3]
         # rotations shape [B, T, J, 4]
@@ -35,6 +36,8 @@ class TensorAnimBatch:
         self.rotations = rotations
         self.positions = positions
         self.skeleton = skeleton
+        self.device = root_positions.device
+        self.dtype = root_positions.dtype
         self._batch_size = batch_size
 
     @property
