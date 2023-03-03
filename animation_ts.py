@@ -65,3 +65,19 @@ class TensorAnimBatch:
             positions_ts[jt] = torch.cat(positions_ts[jt], dim=0)
 
         return TensorAnimBatch(root_positions_ts, rotations_ts, positions_ts, skeleton_ts_batch)
+
+    def to_(self, device, dtype):
+        self.skeleton.offsets = self.skeleton.offsets.to(
+            device=device, dtype=dtype)
+        for jt in self.skeleton.end_offsets:
+            self.skeleton.end_offsets[jt] = self.skeleton.end_offsets[jt].to(
+                device=device, dtype=dtype)
+        self.root_positions = self.root_positions.to(
+            device=device, dtype=dtype)
+        self.rotations = self.rotations.to(
+            device=device, dtype=dtype)
+        for jt in self.positions:
+            self.positions[jt] = self.positions[jt].to(
+                device=device, dtype=dtype)
+        self.device = device
+        self.dtype = dtype
