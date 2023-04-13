@@ -75,10 +75,10 @@ class TensorSkeletonBatch:
         return TensorSkeletonBatch(hierarchy_og, all_offsets_ts, all_end_offsets_ts)
 
 
-class SkelPool(nn.Module):
+class SkelPoolFlat(nn.Module):
     # Average pooling operation according to pool_map
     def __init__(self, c_root, c_jt, pool_map):
-        super(SkelPool, self).__init__()
+        super(SkelPoolFlat, self).__init__()
         self.num_jts = pool_map[-1][-1] + 1  # num_jts is largest pool_map index + 1
         self.num_jts_p = len(pool_map)
         self.pool_map = pool_map.copy()
@@ -120,10 +120,10 @@ class SkelPool(nn.Module):
         return x_out
 
 
-class SkelUnpool(nn.Module):
+class SkelUnpoolFlat(nn.Module):
     # Simple unpool operation: copies pooled joints according to unpool_map
     def __init__(self, c_root, c_jt, unpool_map):
-        super(SkelUnpool, self).__init__()
+        super(SkelUnpoolFlat, self).__init__()
         self.num_jts = len(unpool_map)
         self.num_jts_p = unpool_map[-1] + 1
         self.unpool_map = unpool_map
@@ -158,13 +158,13 @@ class SkelUnpool(nn.Module):
         return x_out
 
 
-class SkelLinear(nn.Module):
+class SkelLinearFlat(nn.Module):
     """
     Static (skeletal) conv layer of the Aberman method.
     Linear only in the temporal sense; essentially performs convolution spatially across the skeleton.
     """
     def __init__(self, c_root_in, c_root_out, c_jt_in, c_jt_out, conv_map, leaky_after, bias=True):
-        super(SkelLinear, self).__init__()
+        super(SkelLinearFlat, self).__init__()
 
         self.c_root_in = c_root_in
         self.c_root_out = c_root_out
@@ -237,7 +237,7 @@ class SkelLinear(nn.Module):
         return x_out
 
 
-class SkelConv(nn.Module):
+class SkelConvFlat(nn.Module):
     """
     Represent a dynamic conv layer of the Aberman method.
     Set up to be (relatively) independent of input format via configurable mask.
@@ -245,7 +245,7 @@ class SkelConv(nn.Module):
     """
     def __init__(self, c_root_in, c_root_out, c_jt_in, c_jt_out, conv_map,
                  kernel_size, stride, leaky_after, bias=True):
-        super(SkelConv, self).__init__()
+        super(SkelConvFlat, self).__init__()
 
         self.c_root_in = c_root_in
         self.c_root_out = c_root_out
@@ -334,6 +334,49 @@ class SkelConv(nn.Module):
         return x_out
 
 
+class SkelConvPool3D(nn.Module):
+    """
+    Represent 3D skeletal convolution a la MoDi.
+    Set up to be (relatively) independent of input format via configurable mask.
+
+    """
+    def __init__(self, c_in, c_out, e_in, e_out,
+                 kernel_size, stride, bias=True):
+        super(SkelConvPool3D, self).__init__()
+
+        self.c_in = c_in
+        self.c_out = c_out
+        self.e_in = e_in
+        self.e_out = e_out
+
+        padding = (kernel_size - 1) // 2
+
+        kernel_size_3d = (e_out, e_in, kernel_size)
+        stride_3d = (1, 1, stride)
+        pad_3d = (e_out, 0, padding)
+
+        self.conv = nn.Conv3d(c_in, c_out, kernel_size_3d, stride_3d, pad_3d, bias=bias)
+
+    def forward(self, x):
+        # Expects x of shape [B, C, E_in, T]
+
+        # Add a dimension for E_out: [B, C, 1, E_in, T]
+        x = x.unsqueeze(2)
+
+        # Conv:
+        #  pads to become [B, C, 2 * E_out + 1, E_in, T]
+        #  then outputs [B, C, E_out, E_in, T]
+        x = self.conv(x)
+
+        # Ignore all but one of original E_in dimension: [B, C, E_out, 1, T]
+        x = x[..., 0, :]
+
+        # Squeeze E_in dimension: [B, C, E_out, T]
+        x = x.squeeze(x, 3)
+
+        return x
+
+
 if __name__ == "__main__":
 
     # Pass --plot to args for plot
@@ -373,10 +416,10 @@ if __name__ == "__main__":
     LEAKY_CONV = 0.2
     LEAKY_LIN = None
 
-    test_conv = SkelConv(C_ROOT, C_ROOT_P, C_JT, C_JT_P, test_conv_map, KERNEL_SIZE, STRIDE, LEAKY_CONV)
-    test_pool = SkelPool(C_ROOT_P, C_JT_P, test_pool_map)
-    test_linear = SkelLinear(C_ROOT_P, C_ROOT, C_JT_P, C_JT, test_conv_map_p, LEAKY_LIN, bias=True)
-    test_unpool = SkelUnpool(C_ROOT, C_JT, test_unpool_map)
+    test_conv = SkelConvFlat(C_ROOT, C_ROOT_P, C_JT, C_JT_P, test_conv_map, KERNEL_SIZE, STRIDE, LEAKY_CONV)
+    test_pool = SkelPoolFlat(C_ROOT_P, C_JT_P, test_pool_map)
+    test_linear = SkelLinearFlat(C_ROOT_P, C_ROOT, C_JT_P, C_JT, test_conv_map_p, LEAKY_LIN, bias=True)
+    test_unpool = SkelUnpoolFlat(C_ROOT, C_JT, test_unpool_map)
 
     # Instead of this, imagine getting this from animation data, the shape is the same.
     test_x = torch.empty((BATCH_SIZE, C, WIN_LEN))
