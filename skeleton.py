@@ -49,25 +49,6 @@ class Skeleton:
             self.end_offsets[jt][1] = mul_y * end_offsets_temp[jt][new_y]
             self.end_offsets[jt][2] = mul_z * end_offsets_temp[jt][new_z]
 
-        """ If chirality flipped then remap data via mir_map """
-        if mul_x * mul_y * mul_z == -1:
-            mir_data = self.generate_mir_data()
-            mir_map = mir_data.mir_map
-
-            """ Flip jt_offsets """
-            jt_offsets_temp = self.jt_offsets.copy()
-            for jt in range(self.num_jts):
-                mir_jt = mir_map[jt]
-                self.jt_offsets[jt] = jt_offsets_temp[mir_jt]
-
-            """ Flip end_offsets """
-            end_offsets_temp = {}  # Copy end_offsets
-            for jt in self.end_offsets:
-                end_offsets_temp[jt] = self.end_offsets[jt].copy()
-            for par_jt in self.end_offsets:  # Mirror end_offsets
-                par_mir_jt = mir_map[par_jt]
-                self.end_offsets[par_jt] = end_offsets_temp[par_mir_jt]
-
     def generate_mir_data(self):
         """
         Make sure you know what you're doing using this.
@@ -284,6 +265,8 @@ class SkeletalConvPoolScheme:
 
 
 if __name__ == "__main__":
+    print('Testing skeleton.py')
+
     import bvh
     import test_config
     test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)

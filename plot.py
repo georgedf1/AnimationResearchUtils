@@ -502,12 +502,15 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
 
 
 if __name__ == "__main__":
+    print('Testing plot.py')
+
     """ Test plotting animation """
     import bvh
     import test_config
     test_anim = bvh.load_bvh(test_config.TEST_FILEPATH, downscale=1.0)
     test_anim = test_anim.extract_root_motion()
     test_anim.reorder_axes_inplace(2, 0, 1)
+    test_anim = test_anim.subsample(4)
 
     plot_animation(test_anim, ignore_root=True)
 
@@ -517,12 +520,15 @@ if __name__ == "__main__":
     test_posis = {}
     for test_jt in test_anim.positions:
         test_posis[test_jt] = test_anim.positions[test_jt].copy()
+
     test_global_posis, _, test_global_end_posis = kinematics.forward_kinematics(
         test_root_posis, test_rots, test_skel, test_posis)
+
     test_geps_list = []
     for test_jt in test_global_end_posis:
         test_geps_list.append(test_global_end_posis[test_jt][:, None])
     test_geps_concat = np.concatenate(test_geps_list, axis=1)
+
     test_all_posis = np.append(test_global_posis, test_geps_concat, axis=1)
     plot_positions(test_all_posis, frame_time=test_anim.frame_time, use_slider=True)
 

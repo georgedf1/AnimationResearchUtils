@@ -378,6 +378,7 @@ class SkelConvPool3D(nn.Module):
 
 
 if __name__ == "__main__":
+    print('Testing skeleton_ts.py')
 
     # Pass --plot to args for plot
     import argparse

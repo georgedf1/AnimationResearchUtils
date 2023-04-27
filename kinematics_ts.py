@@ -86,6 +86,7 @@ def local_to_global(fk_pos, fk_end_pos, root_pos, root_rot):
 
 
 if __name__ == "__main__":
+    print('Testing kinematics_ts.py')
 
     # Pass --plot to args to plot
     import argparse
@@ -97,6 +98,8 @@ if __name__ == "__main__":
     import bvh
     import test_config
     test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
+    test_anim.reorder_axes_inplace(2, 0, 1)
+    test_anim = test_anim.subsample(4)
 
     test_skel = test_anim.skeleton
 

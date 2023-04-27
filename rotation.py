@@ -458,8 +458,7 @@ def reorder_quat_axes_inplace(qs, new_x, new_y, new_z, mir_x=False, mir_y=False,
 
 # TODO Make some robust hand-checked tests
 if __name__ == '__main__':
-
-    print("Testing rotation.py functionality:")
+    print("Testing rotation.py")
 
     test_es = np.array([[-1.1, -0.6, 0.2], [0.2, 0.0, 0.7], [0.0, 0.0, 0.0]])
     # es = np.array([[0.0, -0.6, 0.0], [0.0, 0.6, 0.0], [0.0, 0.0, 0.0]])

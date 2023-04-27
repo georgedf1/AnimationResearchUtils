@@ -141,12 +141,17 @@ class AnimationClip:
             positions[jt] = np.append(self.positions[jt], anim.positions[jt], axis=0)
         return AnimationClip(root_positions, rotations, self.skeleton, self.frame_time, positions, self.name).copy()
 
-    def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False):
+    def reorder_axes_inplace(self, new_x, new_y, new_z, mir_x=False, mir_y=False, mir_z=False, warning=True):
         # Note: mir_o mirrors the new o axis not the old o axis.
-
+        chirality = 1 if (new_y - new_x) % 3 == 1 else -1
         mul_x = -1 if mir_x else 1
         mul_y = -1 if mir_y else 1
         mul_z = -1 if mir_z else 1
+        mirror_factor = chirality * mul_x * mul_y * mul_z
+        if warning and mirror_factor == -1:
+            print("Warning: reorder_axes_inplace called with negative mirror factor",
+                  "so skeleton joint names may be inconsistent with directions (left/right)",
+                  "\nYou may wish to use the mirror_inplace method instead or use one less mirroring operation!")
 
         # Reorder rotations
         xs_temp = self.rotations[..., 1].copy()
@@ -156,9 +161,12 @@ class AnimationClip:
         self.rotations[..., 1] = mul_x * temps[new_x]
         self.rotations[..., 2] = mul_y * temps[new_y]
         self.rotations[..., 3] = mul_z * temps[new_z]
-        self.rotations[..., 0] *= mul_x * mul_y * mul_z  # Adjust rotation according to chirality
+        # Adjust rotation according to chirality and mirroring
+        self.rotations[..., 0] *= (chirality * mul_x * mul_y * mul_z)
 
         # Reorder skeleton
+        # FIXME Overall not sure if this and the skeleton mirroring below work in the sensible way for all cases.
+        #   But they do work as expected when mirror_factor == 1 so I guess it's fine.
         self.skeleton.reorder_axes_inplace(new_x, new_y, new_z, mir_x, mir_y, mir_z)
 
         # Reorder root_positions
@@ -380,6 +388,7 @@ class AnimationClip:
 
 
 if __name__ == '__main__':
+    print('Testing animation.py')
 
     # Pass --plot to args to plot
     import argparse
@@ -394,6 +403,7 @@ if __name__ == '__main__':
     test_anim.reorder_axes_inplace(2, 0, 1)
     test_anim_mir = test_anim.copy()
 
+    # test_anim_mir.reorder_axes_inplace(0, 1, 2, mir_y=True)
     test_mir_data = test_anim_mir.skeleton.generate_mir_data()
     test_anim_mir.mirror_inplace(test_mir_data)
 

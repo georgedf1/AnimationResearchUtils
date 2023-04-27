@@ -323,11 +323,13 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
     lines.append("Frames: " + str(num_frames))
     lines.append("Frame Time: {:.8f}".format(ft))
 
+    eulers = np.rad2deg(rotation.quat_to_euler(rotations, order))
+
     # Motion data
     for fr in range(num_frames):
 
         cur_motion = []
-        cur_eulers = np.rad2deg(rotations[fr].to_eulers(order))
+        cur_eulers = eulers[fr]
 
         # Root joint
         cur_motion.append("{:.5f}".format(float(root_positions[fr, 0])))
@@ -360,6 +362,21 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
 
 
 if __name__ == "__main__":
+    print('Testing bvh.py')
+
     import test_config
     test_anim = load_bvh(test_config.TEST_FILEPATH)
-    # save_bvh('./core/test_save.bvh', anim)
+    test_anim.reorder_axes_inplace(2, 0, 1)
+    test_anim = test_anim.subsample(4)
+
+    import os
+    if not os.path.isdir('temp'):
+        os.mkdir('temp')
+
+    save_bvh('./temp/test_save.bvh', test_anim)
+
+    test_anim_re = load_bvh('./temp/test_save.bvh')
+    test_anim_re.root_positions[..., 0] += 1.0
+
+    import plot
+    plot.plot_animation(test_anim, test_anim_re)

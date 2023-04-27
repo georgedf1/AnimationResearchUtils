@@ -73,6 +73,7 @@ def local_to_global(fk_pos, fk_end_pos, root_pos, root_rot):
 
 
 if __name__ == "__main__":
+    print('Testing kinematics.py')
 
     # Pass --plot to args for plot
     import argparse
@@ -84,18 +85,17 @@ if __name__ == "__main__":
     import bvh
     import test_config
     test_anim = bvh.load_bvh(test_config.TEST_FILEPATH)
+    test_anim.reorder_axes_inplace(2, 0, 1)
+    test_anim = test_anim.subsample(4)
 
     test_gps, test_grs, test_geps = forward_kinematics(
         test_anim.root_positions, test_anim.rotations, test_anim.skeleton, test_anim.positions)
-    print(test_gps.shape)
 
     test_ps, test_rs, test_eps = forward_kinematics(
         test_anim.root_positions, test_anim.rotations, test_anim.skeleton, test_anim.positions, True)
-    print(test_ps.shape)
 
     test_gps_re, test_geps_re = local_to_global(
         test_ps, test_eps, test_anim.root_positions, test_anim.rotations[:, 0])
-    print(test_gps_re.shape)
 
     if should_plot:
         import plot
