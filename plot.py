@@ -3,7 +3,7 @@ import numpy as np
 import animation
 import skeleton
 import kinematics
-
+import typing
 
 PLOT_EPSILON = 1e-8
 
@@ -60,61 +60,73 @@ def __get_sliders(frames, slider_pts):
     )]
 
 
-def plot_animation(anim: animation.AnimationClip,
-                   other_anim: animation.AnimationClip = None,
-                   ft_ms=None, end_sites=True, ignore_root=False, title=None,
-                   marker_size=5, line_size=4, end_marker_diff_color=False,
+def plot_animation(anims: typing.Union[animation.AnimationClip, typing.Iterable[animation.AnimationClip]],
+                   ft_ms=None, end_sites=True, ignore_root=False,
+                   title=None, names=None,
+                   marker_size=5, line_size=4,
                    use_slider=True, slider_pts=20):
 
     if use_slider and slider_pts > 20:
         print('Warning: use_slider=True can reduce playback performance significantly for higher values of slider_pts!')
 
+    if type(anims) == animation.AnimationClip:
+        anims = [anims]
+    num_anims = len(anims)
+
+    if names is None:
+        names = ['anim'+str(i+1) for i in range(num_anims)]
+    assert len(names) == num_anims
+
     if ft_ms is None:
-        ft_ms = 1000 * anim.frame_time
-    num_frames, num_jts = anim.rotations.shape[0:2]
+        ft_ms = 1000 * anims[0].frame_time
 
-    root_posis = anim.root_positions.copy()
-    rots = anim.rotations.copy()
-    skel = anim.skeleton.copy()
-    posis = {}
-    for jt_ep in anim.positions:
-        posis[jt_ep] = anim.positions[jt_ep].copy()
+    num_frames = len(anims[0])
+    for anim in anims:
+        assert len(anim) == num_frames
 
-    global_posis, _, global_end_posis = kinematics.forward_kinematics(root_posis, rots, skel, posis)
-    end_posis_list = [global_end_posis]
-    if other_anim is not None:
-        other_root_posis = other_anim.root_positions.copy()
-        other_rots = other_anim.rotations.copy()
-        other_skel = other_anim.skeleton.copy()
-        other_posis = {}
-        for jt_ep in other_anim.positions:
-            other_posis[jt_ep] = other_anim.positions[jt_ep].copy()
+    colors = ['blue', 'red', 'darkgreen']
+    assert num_anims <= 3, "Avoid more than three anims in plot due to performance and colours"
 
-        other_global_posis, _, other_global_end_posis = kinematics.forward_kinematics(
-            other_root_posis, other_rots, other_skel, other_posis)
+    # Get global positions from animations
+    all_gps = []
+    all_ges = []
+    all_hierarchies = []
+    for anim in anims:
+        rps = anim.root_positions.copy()
+        rots = anim.rotations.copy()
+        skel = anim.skeleton.copy()
+        posis = {}
+        for jt in anim.positions:
+            posis[jt] = anim.positions[jt].copy()
+        gps, _, ges = kinematics.forward_kinematics(rps, rots, skel, posis)
+        all_gps.append(gps)
+        all_ges.append(ges)
+        all_hierarchies.append(skel.jt_hierarchy.copy())
 
-        end_posis_list.append(other_global_end_posis)
-
-        stat_positions = np.append(global_posis, other_global_posis, axis=1)
-    else:
-        stat_positions = global_posis
-
-    x_min = np.min(stat_positions[..., 0])
-    x_max = np.max(stat_positions[..., 0])
-    y_min = np.min(stat_positions[..., 1])
-    y_max = np.max(stat_positions[..., 1])
-    z_min = np.min(stat_positions[..., 2])
-    z_max = np.max(stat_positions[..., 2])
-
-    if end_sites:
-        for end_posis in end_posis_list:
-            for jt_ep in end_posis:
-                x_min = min(x_min, np.min(end_posis[jt_ep][..., 0]))
-                x_max = max(x_max, np.max(end_posis[jt_ep][..., 0]))
-                y_min = min(y_min, np.min(end_posis[jt_ep][..., 1]))
-                y_max = max(y_max, np.max(end_posis[jt_ep][..., 1]))
-                z_min = min(z_min, np.min(end_posis[jt_ep][..., 2]))
-                z_max = max(z_max, np.max(end_posis[jt_ep][..., 2]))
+    # Compute bounding box of all data
+    x_min = np.infty
+    x_max = -np.infty
+    y_min = np.infty
+    y_max = -np.infty
+    z_min = np.infty
+    z_max = -np.infty
+    for i in range(num_anims):
+        gps = all_gps[i]
+        x_min = min(x_min, np.min(gps[..., 0]))
+        x_max = max(x_max, np.max(gps[..., 0]))
+        y_min = min(y_min, np.min(gps[..., 1]))
+        y_max = max(y_max, np.max(gps[..., 1]))
+        z_min = min(z_min, np.min(gps[..., 2]))
+        z_max = max(z_max, np.max(gps[..., 2]))
+        if end_sites:
+            ges = all_ges[i]
+            for jt in ges:
+                x_min = min(x_min, np.min(ges[jt][..., 0]))
+                x_max = max(x_max, np.max(ges[jt][..., 0]))
+                y_min = min(y_min, np.min(ges[jt][..., 1]))
+                y_max = max(y_max, np.max(ges[jt][..., 1]))
+                z_min = min(z_min, np.min(ges[jt][..., 2]))
+                z_max = max(z_max, np.max(ges[jt][..., 2]))
 
     # TODO Make more sophisticated (keep centre zero)
     # noinspection DuplicatedCode
@@ -147,97 +159,55 @@ def plot_animation(anim: animation.AnimationClip,
     z_min = z_mid - dilation * z_diff
     z_max = z_mid + dilation * z_diff
 
-    def get_joint_data(pos_data, fr, color):
-        if ignore_root:
-            xs = pos_data[fr, 1:, 0]
-            ys = pos_data[fr, 1:, 1]
-            zs = pos_data[fr, 1:, 2]
-        else:
-            xs = pos_data[fr, :, 0]
-            ys = pos_data[fr, :, 1]
-            zs = pos_data[fr, :, 2]
+    def get_data(anim_idx, fr):
+        gps_ = all_gps[anim_idx]
+        ges_ = all_ges[anim_idx]
+        hierarchy_ = all_hierarchies[anim_idx]
+        num_jts_ = len(hierarchy_)
 
-        return go.Scatter3d(
-            x=xs, y=ys, z=zs, mode='markers', marker=dict(color=color, size=marker_size)
-        )
-
-    def get_end_joint_data(end_pos_data, fr, color):
         xs = []
         ys = []
         zs = []
-        for jt in end_pos_data:
-            if jt == 0 and ignore_root:
+        for jt_ in range(1, num_jts_):
+            par_jt = hierarchy_[jt_]
+            if ignore_root and par_jt == 0:
                 continue
-            xs.append(end_pos_data[jt][fr, 0])
-            ys.append(end_pos_data[jt][fr, 1])
-            zs.append(end_pos_data[jt][fr, 2])
-        xs = np.asarray(xs)
-        ys = np.asarray(ys)
-        zs = np.asarray(zs)
-        return go.Scatter3d(
-            x=xs, y=ys, z=zs, mode='markers', marker=dict(color=color, size=marker_size)
-        )
-
-    def get_bone_data(pos_data, fr, color):
-        xs = []
-        ys = []
-        zs = []
-        for jt in range(1, num_jts):
-            par_jt = skel.jt_hierarchy[jt]
-            if par_jt == 0 and ignore_root:
-                continue
-            xs.append(pos_data[fr, par_jt, 0])
-            xs.append(pos_data[fr, jt, 0])
+            cur_par_gp = gps_[fr, par_jt]
+            cur_gp = gps_[fr, jt_]
+            xs.append(cur_par_gp[0])
+            xs.append(cur_gp[0])
             xs.append(None)
-            ys.append(pos_data[fr, par_jt, 1])
-            ys.append(pos_data[fr, jt, 1])
+            ys.append(cur_par_gp[1])
+            ys.append(cur_gp[1])
             ys.append(None)
-            zs.append(pos_data[fr, par_jt, 2])
-            zs.append(pos_data[fr, jt, 2])
+            zs.append(cur_par_gp[2])
+            zs.append(cur_gp[2])
             zs.append(None)
+
+        if end_sites:
+            for jt_ in ges_:
+                if ignore_root and jt_ == 0:
+                    print("Warning: culled an end site attached to root in plot_animation due to ignore_root=True")
+                    continue
+                cur_gp = gps_[fr, jt_]
+                cur_ge = ges_[jt_][fr]
+                xs.append(cur_gp[0])
+                xs.append(cur_ge[0])
+                xs.append(None)
+                ys.append(cur_gp[1])
+                ys.append(cur_ge[1])
+                ys.append(None)
+                zs.append(cur_gp[2])
+                zs.append(cur_ge[2])
+                zs.append(None)
+
         return go.Scatter3d(
-            x=xs, y=ys, z=zs, mode='lines', line=dict(color=color, width=line_size)
+            x=xs, y=ys, z=zs, mode='lines+markers', name=names[anim_idx],
+            line=dict(color=colors[anim_idx], width=line_size), marker=dict(color=colors[anim_idx], size=marker_size)
         )
 
-    def get_end_bone_data(pos_data, end_pos_data, fr, color):
-        xs = []
-        ys = []
-        zs = []
-        for jt in end_pos_data:
-            xs.append(pos_data[fr, jt, 0])
-            xs.append(end_pos_data[jt][fr, 0])
-            xs.append(None)
-            ys.append(pos_data[fr, jt, 1])
-            ys.append(end_pos_data[jt][fr, 1])
-            ys.append(None)
-            zs.append(pos_data[fr, jt, 2])
-            zs.append(end_pos_data[jt][fr, 2])
-            zs.append(None)
-        return go.Scatter3d(
-            x=xs, y=ys, z=zs, mode='lines', line=dict(color=color, width=line_size)
-        )
-
-    def get_data(fr):
-        posis_list = [global_posis]
-        end_posis_list_ = [global_end_posis]
-        if other_anim is not None:
-            posis_list.append(other_global_posis)
-            end_posis_list_.append(other_global_end_posis)
-        i = 0
-        data = []
-        for posis_, end_posis_ in zip(posis_list, end_posis_list_):
-            color = 'blue' if i == 0 else 'red'
-            other_color = 'red' if color == 'blue' else 'blue'
-            end_color = other_color if end_marker_diff_color else color
-            data.append(get_joint_data(posis_, fr, color))
-            data.append(get_bone_data(posis_, fr, color))
-            if end_sites:
-                data.append(get_end_joint_data(end_posis_, fr, end_color))
-                data.append(get_end_bone_data(posis_, end_posis_, fr, end_color))
-            i += 1
-        return data
-
-    frames = [go.Frame(data=get_data(fr), name=str(fr)) for fr in range(num_frames)]
+    frames = [go.Frame(data=[get_data(i, fr) for i in range(num_anims)],
+                       name=str(fr)) for fr in range(num_frames)]
 
     scene = dict(
         aspectmode='cube',
@@ -257,7 +227,7 @@ def plot_animation(anim: animation.AnimationClip,
     layout = go.Layout(**layout_dict)
 
     fig = go.Figure(
-        data=get_data(0),
+        data=[get_data(i, 0) for i in range(num_anims)],
         layout=layout,
         frames=frames
     )
@@ -504,15 +474,26 @@ def plot_skeleton(skel: skeleton.Skeleton, end_sites=True, marker_size=5, line_s
 if __name__ == "__main__":
     print('Testing plot.py')
 
-    """ Test plotting animation """
     import bvh
     import test_config
-    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH, downscale=1.0)
-    test_anim = test_anim.extract_root_motion()
+
+    """ Plot animation """
+
+    test_anim = bvh.load_bvh(test_config.TEST_FILEPATH, downscale=2.0)
     test_anim.reorder_axes_inplace(2, 0, 1)
     test_anim = test_anim.subsample(4)
 
-    plot_animation(test_anim, ignore_root=True)
+    test_anim_2 = bvh.load_bvh(test_config.TEST_FILEPATH_2, downscale=5.0)
+    test_anim_2 = test_anim_2.reorder_axes_inplace(0, 2, 1, mir_x=True)
+    test_anim_2 = test_anim_2.subsample(4)
+
+    test_anim_3 = bvh.load_bvh(test_config.TEST_FILEPATH_3, downscale=5.0)
+    test_anim_3 = test_anim_3.reorder_axes_inplace(0, 2, 1, mir_x=True)
+    test_anim_3 = test_anim_3.subsample(4)
+
+    plot_animation([test_anim, test_anim_2, test_anim_3])
+
+    """ Plot positions """
 
     test_root_posis = test_anim.root_positions.copy()
     test_rots = test_anim.rotations.copy()
@@ -532,4 +513,8 @@ if __name__ == "__main__":
     test_all_posis = np.append(test_global_posis, test_geps_concat, axis=1)
     plot_positions(test_all_posis, frame_time=test_anim.frame_time, use_slider=True)
 
-    plot_skeleton(test_anim.skeleton)
+    """ Plot skeleton """
+
+    test_anim_skel = bvh.load_bvh(test_config.TEST_FILEPATH, downscale=2.0)
+    test_anim_skel = test_anim_skel.extract_root_motion()
+    plot_skeleton(test_anim_skel.skeleton)

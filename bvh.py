@@ -379,4 +379,4 @@ if __name__ == "__main__":
     test_anim_re.root_positions[..., 0] += 1.0
 
     import plot
-    plot.plot_animation(test_anim, test_anim_re)
+    plot.plot_animation([test_anim, test_anim_re])

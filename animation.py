@@ -411,4 +411,4 @@ if __name__ == '__main__':
     # anim.reorder_axes_inplace(2, 0, 1)
     if should_plot:
         import plot
-        plot.plot_animation(test_anim, test_anim_mir)
+        plot.plot_animation([test_anim, test_anim_mir])
