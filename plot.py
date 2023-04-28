@@ -484,14 +484,15 @@ if __name__ == "__main__":
     test_anim = test_anim.subsample(4)
 
     test_anim_2 = bvh.load_bvh(test_config.TEST_FILEPATH_2, downscale=5.0)
-    test_anim_2 = test_anim_2.reorder_axes_inplace(0, 2, 1, mir_x=True)
+    test_anim_2.reorder_axes_inplace(0, 2, 1, mir_x=True)
     test_anim_2 = test_anim_2.subsample(4)
 
     test_anim_3 = bvh.load_bvh(test_config.TEST_FILEPATH_3, downscale=5.0)
-    test_anim_3 = test_anim_3.reorder_axes_inplace(0, 2, 1, mir_x=True)
+    test_anim_3.reorder_axes_inplace(0, 2, 1, mir_x=True)
     test_anim_3 = test_anim_3.subsample(4)
 
-    plot_animation([test_anim, test_anim_2, test_anim_3])
+    num_frames = min(len(test_anim), len(test_anim_2), len(test_anim_3))
+    plot_animation([test_anim[:num_frames], test_anim_2[:num_frames], test_anim_3[:num_frames]])
 
     """ Plot positions """
 
