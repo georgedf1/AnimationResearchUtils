@@ -20,10 +20,16 @@ class Skeleton:
         self.num_jts = len(self.jt_hierarchy)
 
     def __eq__(self, other):
-        return np.all(self.jt_names == other.jt_names) and \
-               np.all(self.jt_hierarchy == other.jt_hierarchy) and \
-               np.all(self.jt_offsets == other.jt_offsets) and \
-               np.all(self.end_offsets == other.end_offsets)
+        names_match = np.all(self.jt_names == other.jt_names)
+        hierarchies_match = np.all(self.jt_hierarchy == other.jt_hierarchy)
+        offsets_match = np.all(self.jt_offsets == other.jt_offsets)
+        end_offsets_keys_match = np.all(self.end_offsets.keys() == other.end_offsets.keys())
+        if not end_offsets_keys_match:
+            return False
+        end_offsets_match = True
+        for jt in self.end_offsets:
+            end_offsets_match = end_offsets_match and np.all(self.end_offsets[jt] == other.end_offsets[jt])
+        return names_match and hierarchies_match and offsets_match and end_offsets_match
 
     def copy(self):
         end_offsets = {}
