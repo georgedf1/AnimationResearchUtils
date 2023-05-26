@@ -491,8 +491,8 @@ if __name__ == "__main__":
     test_anim_3.reorder_axes_inplace(0, 2, 1, mir_x=True)
     test_anim_3 = test_anim_3.subsample(4)
 
-    num_frames = min(len(test_anim), len(test_anim_2), len(test_anim_3))
-    plot_animation([test_anim[:num_frames], test_anim_2[:num_frames], test_anim_3[:num_frames]])
+    test_num_frames = min(len(test_anim), len(test_anim_2), len(test_anim_3))
+    plot_animation([test_anim[:test_num_frames], test_anim_2[:test_num_frames], test_anim_3[:test_num_frames]])
 
     """ Plot positions """
 
