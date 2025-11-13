@@ -2,9 +2,9 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from skeleton import Skeleton, SkeletalConvPoolScheme
 import typing
 import numpy as np
+from .skeleton import Skeleton, SkeletalConvPoolScheme
 
 
 class TensorSkeletonBatch:

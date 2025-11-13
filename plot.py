@@ -1,9 +1,7 @@
 import plotly.graph_objects as go
 import numpy as np
-import animation
-import skeleton
-import kinematics
 import typing
+from . import animation, skeleton, kinematics
 
 PLOT_EPSILON = 1e-8
 

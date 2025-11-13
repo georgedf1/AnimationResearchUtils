@@ -1,6 +1,5 @@
 import torch
-import skeleton_ts
-import rotation_ts
+from . import skeleton_ts, rotation_ts
 
 
 def forward_kinematics(root_positions, rotations, skeleton: skeleton_ts.TensorSkeletonBatch,

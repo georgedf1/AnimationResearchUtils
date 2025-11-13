@@ -1,8 +1,7 @@
 import typing
-
 import numpy as np
-from skeleton import Skeleton
-import rotation
+from .skeleton import Skeleton
+from . import rotation
 
 
 class AnimationClip:

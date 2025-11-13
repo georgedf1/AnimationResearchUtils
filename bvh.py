@@ -1,8 +1,8 @@
 import re
 import numpy as np
-from animation import AnimationClip
-from skeleton import Skeleton
-import rotation
+from .animation import AnimationClip
+from .skeleton import Skeleton
+from . import rotation
 
 
 class RawBvhData:

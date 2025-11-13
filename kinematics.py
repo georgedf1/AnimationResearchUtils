@@ -1,5 +1,5 @@
 import numpy as np
-import rotation
+from . import rotation
 
 
 def forward_kinematics(root_positions, rotations, skeleton, positions=None, local_to_root=False):

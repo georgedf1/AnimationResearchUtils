@@ -1,7 +1,6 @@
-import skeleton_ts
-import animation
 import typing
 import torch
+from . import skeleton_ts, animation
 
 
 class TensorAnimBatch:
