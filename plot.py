@@ -102,12 +102,12 @@ def plot_animation(anims: typing.Union[animation.AnimationClip, typing.Iterable[
         all_hierarchies.append(skel.jt_hierarchy.copy())
 
     # Compute bounding box of all data
-    x_min = np.infty
-    x_max = -np.infty
-    y_min = np.infty
-    y_max = -np.infty
-    z_min = np.infty
-    z_max = -np.infty
+    x_min = np.inf
+    x_max = -np.inf
+    y_min = np.inf
+    y_max = -np.inf
+    z_min = np.inf
+    z_max = -np.inf
     for i in range(num_anims):
         gps = all_gps[i]
         x_min = min(x_min, np.min(gps[..., 0]))
