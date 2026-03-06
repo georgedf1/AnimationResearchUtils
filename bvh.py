@@ -46,7 +46,7 @@ def __parse_bvh(bvh_path):
     assert 'HIERARCHY' in lines[line_idx]
     line_idx += 1
 
-    match = re.match('ROOT (\w+)', lines[line_idx])  # Root line
+    match = re.match(r'ROOT (\w+)', lines[line_idx])  # Root line
     assert match
     root_name = match[1]
     jt_names.append(root_name)
@@ -76,7 +76,7 @@ def __parse_bvh(bvh_path):
             line_idx += 1
             continue
 
-        match = re.match('.+JOINT (\w+)', lines[line_idx])
+        match = re.match(r'.+JOINT (\w+)', lines[line_idx])
         if match:
             jt_names.append(match[1])
             line_idx += 2
@@ -122,14 +122,14 @@ def __parse_bvh(bvh_path):
     Read motion metadata
     """
     lines[line_idx] = lines[line_idx].replace('\t', ' ')
-    match = re.match('Frames: +(\d+)', lines[line_idx])
+    match = re.match(r'Frames: +(\d+)', lines[line_idx])
     assert match
     num_frames = int(match[1])
     assert num_frames > 0
     line_idx += 1
 
     lines[line_idx] = lines[line_idx].replace('\t', ' ')
-    match = re.match('Frame Time: +(\d*\.\d+)', lines[line_idx])
+    match = re.match(r'Frame Time: +(\d*\.\d+)', lines[line_idx])
     assert match
     frame_time = float(match[1])
     assert frame_time > 0
