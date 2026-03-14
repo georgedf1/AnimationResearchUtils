@@ -1,17 +1,10 @@
 import numpy as np
 
 
-INV_ARR = np.array([1, -1, -1, -1])
-AXIS = {
-    'x': np.array([1, 0, 0]),
-    'y': np.array([0, 1, 0]),
-    'z': np.array([0, 0, 1])
-}
-
-
 def quat_inv(qs):
+    inv_arr = np.array([1, -1, -1, -1])
     inv_shp = (len(qs.shape) - 1) * (1,) + (4,)
-    return qs * np.broadcast_to(INV_ARR, inv_shp)
+    return qs * np.broadcast_to(inv_arr, inv_shp)
 
 
 def quat_mul_quat(q0s, q1s):
@@ -345,22 +338,26 @@ def euler_to_quat(es, order='zxy', from_degrees=False):
     # Order specifies the order of rotation matrices so xyz corresponds to z first: R = x(es)y(es)z(es)
     # Aberman also had a world bool parameter which returns the inverse q2s * (q1s * q0s) if true
 
+    assert order[0] != order[1] and order[0] != order[2] and order[1] != order[2], "Three-axis rotation only"
+
     if from_degrees:
         es = np.deg2rad(es)
 
-    es_0 = es[..., 0]
-    es_1 = es[..., 1]
-    es_2 = es[..., 2]
-    axs_0 = np.empty_like(es)
-    axs_1 = np.empty_like(es)
-    axs_2 = np.empty_like(es)
-    axs_0[...] = AXIS[order[0]]
-    axs_1[...] = AXIS[order[1]]
-    axs_2[...] = AXIS[order[2]]
+    x_es = es[..., 0]
+    y_es = es[..., 1]
+    z_es = es[..., 2]
+    x_axs = np.broadcast_to(np.array([1.0, 0.0, 0.0]), es.shape)
+    y_axs = np.broadcast_to(np.array([0.0, 1.0, 0.0]), es.shape)
+    z_axs = np.broadcast_to(np.array([0.0, 0.0, 1.0]), es.shape)
+    x_q = angle_axis_to_quat(x_es, x_axs)
+    y_q = angle_axis_to_quat(y_es, y_axs)
+    z_q = angle_axis_to_quat(z_es, z_axs)
 
-    qs0 = angle_axis_to_quat(es_0, axs_0)
-    qs1 = angle_axis_to_quat(es_1, axs_1)
-    qs2 = angle_axis_to_quat(es_2, axs_2)
+    xyz_q = (x_q, y_q, z_q)
+    axis_to_idx = { 'x': 0, 'y': 1, 'z': 2 }
+    qs0 = xyz_q[axis_to_idx[order[0]]]
+    qs1 = xyz_q[axis_to_idx[order[1]]]
+    qs2 = xyz_q[axis_to_idx[order[2]]]
 
     return quat_mul_quat(qs0, quat_mul_quat(qs1, qs2))
 
