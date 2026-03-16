@@ -385,6 +385,14 @@ class AnimationClip:
         skel = Skeleton(jt_names, jt_hierarchy, jt_offsets, end_offsets)
         return AnimationClip(root_pos, rots, skel, self.frame_time, posis, self.name)
 
+    def scale_inplace(self, scale_factor: float):
+        self.root_positions *= scale_factor
+        for jt in self.positions:
+            self.positions[jt] *= scale_factor
+        self.skeleton.jt_offsets *= scale_factor
+        for par_jt in self.skeleton.end_offsets:
+            self.skeleton.end_offsets[par_jt] *= scale_factor
+
 
 if __name__ == '__main__':
     print('Testing animation.py')
