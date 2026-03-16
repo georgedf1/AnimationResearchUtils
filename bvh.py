@@ -3,6 +3,7 @@ import numpy as np
 from .animation import AnimationClip
 from .skeleton import Skeleton
 from . import rotation
+from . import kinematics
 
 
 class RawBvhData:
@@ -359,6 +360,26 @@ def save_bvh(save_path: str, anim: AnimationClip, order='zxy'):
 
     with open(save_path, 'w') as f:
         f.writelines(lines)
+
+
+def fix_vicon_exporter_bug(anim: AnimationClip):
+    """
+    Applies Vicon exported bug fixes in-place for Shogun <=1.18 (and perhaps newer),
+    as their exporter provides "position" channels in global space, not local.
+    This function mutates the provided "clip" input.
+    """
+    for jt in anim.positions:
+        par_jt = anim.skeleton.jt_hierarchy[jt]
+        # Need to recompute due to potential changes downstream
+        # TODO optimise (by reducing work done) if this is a bottleneck
+        global_positions, global_rotations, _ = kinematics.forward_kinematics(
+            anim.root_positions, anim.rotations, anim.skeleton, anim.positions)
+        par_global_positions = global_positions[:, par_jt]
+        par_global_rotation_inv = rotation.quat_inv(global_rotations[:, par_jt])
+        # global-pos = parent-global-pos + parent-global-rot @ local-pos
+        #   -> local-pos = parent-global-rot^{-1} @ (global-pos - parent-global-pos)
+        anim.positions[jt] = rotation.quat_mul_vec(
+            par_global_rotation_inv, anim.positions[jt] - par_global_positions)
 
 
 if __name__ == "__main__":
