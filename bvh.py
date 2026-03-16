@@ -55,7 +55,7 @@ def __parse_bvh(bvh_path):
     assert 'OFFSET' in lines[line_idx]  # Root offset
     line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
     # root_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
-    root_offset = line.split(' ')
+    root_offset = line.split()
     assert len(root_offset) == 3
     jt_offsets.append([float(x) for x in root_offset])
     line_idx += 1
@@ -85,7 +85,7 @@ def __parse_bvh(bvh_path):
             line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
             # cur_joint_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
             # FIX for EdinDog 'OFFSET 0 0 0' lines
-            jt_off = line.split(' ')
+            jt_off = line.split()
             assert len(jt_off) == 3
             # jt_offsets.append([float(x[0]) for x in cur_joint_offset])
             jt_offsets.append([float(x) for x in jt_off])
@@ -108,7 +108,7 @@ def __parse_bvh(bvh_path):
             assert 'OFFSET' in lines[line_idx]
             line = lines[line_idx].replace('OFFSET', '').strip(' \n\t')
             # cur_endsite_offset = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
-            cur_endsite_offset = line.split(' ')
+            cur_endsite_offset = line.split()
             assert len(cur_endsite_offset) == 3
             endsite_offsets[prev_jt_idx] = [float(x) for x in cur_endsite_offset]
             line_idx += 2
@@ -138,7 +138,7 @@ def __parse_bvh(bvh_path):
     while line_idx < num_lines and lines[line_idx]:
         # cur_motion = re.findall('-?\d+(\.\d+(e[-+]\d+)?)?', lines[line_idx])
         # TODO Fix this with proper regex
-        cur_motion = lines[line_idx].strip(' \n\t').split(' ')
+        cur_motion = lines[line_idx].strip(' \n\t').split()
         assert len(cur_motion) > 0
         motion_data.append([float(x) for x in cur_motion])
         line_idx += 1
