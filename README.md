@@ -11,5 +11,5 @@ If you're wondering where to get some, try [this](https://sites.google.com/a/cgs
 
 ### Dependencies
 - numpy
-- (optional but recommended) plotly for use of plot.py
+- (optional but recommended) rerun-sdk for use of plot.py (visualisation via the [rerun](https://rerun.io) viewer)
 - (optional) pytorch to use functions in *_ts.py files
